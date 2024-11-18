@@ -1,0 +1,10 @@
+.env
+build
+dist
+node_modules
+.vscode
+temp*
+novia.yaml
+novia.db
+media/
+data/

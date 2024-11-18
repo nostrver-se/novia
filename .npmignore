@@ -1,0 +1,7 @@
+bun.lockb
+.prettierrc
+src/
+tsconfig.json
+novia.*
+temp/
+media/
