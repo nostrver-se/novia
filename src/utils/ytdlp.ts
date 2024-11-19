@@ -164,8 +164,8 @@ export async function analyzeVideoFolder(
 
   const thumbnailFile = findFile(
     baseName,
-    [".webp", ".jpg"], // Preferred extensions with base name
-    exactMetaMatch ? [] : [".webp", ".jpg"], // Fallback extensions (same in this case)
+    [".webp", ".jpg", ".image"], // Preferred extensions with base name
+    exactMetaMatch ? [] : [".webp", ".jpg", ".image"], // Fallback extensions (same in this case)
     files,
   );
 

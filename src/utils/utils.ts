@@ -153,6 +153,7 @@ export function getMimeTypeByPath(path: string): string {
     // Image MIME types
     case ".jpg":
     case ".jpeg":
+    case ".image":
       return "image/jpeg";
     case ".png":
       return "image/png";
