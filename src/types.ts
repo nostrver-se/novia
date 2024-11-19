@@ -11,6 +11,7 @@ export interface DownloadConfig {
   ytdlpPath: string;
   tempPath: string;
   targetStoreId: string;
+  secret?: boolean;
 }
 
 export interface PublishConfig {
@@ -21,6 +22,7 @@ export interface PublishConfig {
   relays: string[];
   videoBlobExpirationDays: number;
   videoBlobCutoffSizeLimitMB: number;
+  secret?: boolean;
 }
 
 export interface ServerConfig {

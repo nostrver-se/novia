@@ -107,20 +107,25 @@ async function doWorkForArchive(context: ArchiveJobContext, config: Config, root
 
   const msg = `Starting archive download job for ${context.url}`;
   logger(msg);
-  publishStatusEvent(context, "processing", JSON.stringify({ msg }), [], secretKey, relays);
+
+  if (!config.download?.secret) {
+    publishStatusEvent(context, "processing", JSON.stringify({ msg }), [], secretKey, relays);
+  }
 
   try {
     const targetVideoPath = await processVideoDownloadJob(config, context.url);
     logger(targetVideoPath);
 
-    publishStatusEvent(
-      context,
-      "partial",
-      JSON.stringify({ msg: "Download finished. Processing and uploading to NOSTR..." }),
-      [],
-      secretKey,
-      relays,
-    );
+    if (!config.download?.secret) {
+      publishStatusEvent(
+        context,
+        "partial",
+        JSON.stringify({ msg: "Download finished. Processing and uploading to NOSTR..." }),
+        [],
+        secretKey,
+        relays,
+      );
+    }
 
     if (!targetVideoPath) {
       throw new Error("Download of video has failed.");
@@ -139,30 +144,32 @@ async function doWorkForArchive(context: ArchiveJobContext, config: Config, root
       const em = rootEm.fork();
       em.persistAndFlush(video);
 
-      const resultEvent = {
-        kind: DVM_VIDEO_ARCHIVE_RESULT_KIND,
-        tags: [
-          ["request", JSON.stringify(context.request)],
-          ["e", context.request.id],
-          ["p", context.request.pubkey],
-          getInputTag(context.request),
-        ],
-        content: JSON.stringify(nostrResult),
-        created_at: now(),
-        // TODO add expiration tag when request had an expiration tag
-      };
+      if (!config.download?.secret) {
+        const resultEvent = {
+          kind: DVM_VIDEO_ARCHIVE_RESULT_KIND,
+          tags: [
+            ["request", JSON.stringify(context.request)],
+            ["e", context.request.id],
+            ["p", context.request.pubkey],
+            getInputTag(context.request),
+          ],
+          content: JSON.stringify(nostrResult),
+          created_at: now(),
+          // TODO add expiration tag when request had an expiration tag
+        };
 
-      logger(resultEvent);
+        logger(resultEvent);
 
-      const event = await ensureEncrypted(secretKey, resultEvent, context.request.pubkey, context.wasEncrypted);
-      const result = finalizeEvent(event, secretKey);
+        const event = await ensureEncrypted(secretKey, resultEvent, context.request.pubkey, context.wasEncrypted);
+        const result = finalizeEvent(event, secretKey);
 
-      const pubRes = await Promise.all(
-        pool
-          .publish(unique([...getRelays(context.request), ...(config.publish?.relays || [])]), result)
-          .map((p) => p.catch((e) => {})),
-      );
-      logger(pubRes);
+        const pubRes = await Promise.all(
+          pool
+            .publish(unique([...getRelays(context.request), ...(config.publish?.relays || [])]), result)
+            .map((p) => p.catch((e) => {})),
+        );
+        logger(pubRes);
+      }
     }
   } catch (e) {
     const msg = "Download from the video source failed.";
@@ -192,28 +199,32 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
   const fullPaths = findFullPathsForVideo(video, config.mediaStores);
 
   if (!fullPaths) {
+    if (!config.publish.secret) {
+      await publishStatusEvent(
+        context,
+        "error",
+        JSON.stringify({ msg: "Requested video found in database but the file is currently not available." }),
+        [],
+        secretKey,
+        relays,
+      );
+    }
+
+    return;
+  }
+
+  if (!config.publish.secret) {
     await publishStatusEvent(
       context,
-      "error",
-      JSON.stringify({ msg: "Requested video found in database but the file is currently not available." }),
+      "processing",
+      JSON.stringify({
+        msg: `Starting video upload. Estimated time ${formatDuration(Math.floor(video?.mediaSize / uploadSpeed))}...`,
+      }),
       [],
       secretKey,
       relays,
     );
-    return;
   }
-
-  await publishStatusEvent(
-    context,
-    "processing",
-    JSON.stringify({
-      msg: `Starting video upload. Estimated time ${formatDuration(Math.floor(video?.mediaSize / uploadSpeed))}...`,
-    }),
-    [],
-    secretKey,
-    relays,
-  );
-
   const { videoPath, thumbPath } = fullPaths;
 
   const uploadServers = mergeServers(...config.publish.blossomVideos, ...context.target);
@@ -238,16 +249,19 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
     } catch (err) {
       const msg = `Upload of video to ${server} failed.`;
       console.error(msg, err);
-      await publishStatusEvent(
-        context,
-        "error",
-        JSON.stringify({
-          msg,
-        }),
-        [],
-        secretKey,
-        relays,
-      );
+
+      if (!config.publish.secret) {
+        await publishStatusEvent(
+          context,
+          "error",
+          JSON.stringify({
+            msg,
+          }),
+          [],
+          secretKey,
+          relays,
+        );
+      }
     }
     try {
       const thumbBlob = await uploadFile(
@@ -266,22 +280,33 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
     }
   }
 
-  const resultEvent = {
-    kind: DVM_VIDEO_ARCHIVE_RESULT_KIND,
-    tags: [
-      ["request", JSON.stringify(context.request)],
-      ["e", context.request.id],
-      ["p", context.request.pubkey],
-      getInputTag(context.request),
-    ],
-    content: "",
-    created_at: now(),
+  if (!config.publish.secret) {
+    const resultEvent = {
+      kind: DVM_VIDEO_ARCHIVE_RESULT_KIND,
+      tags: [
+        ["request", JSON.stringify(context.request)],
+        ["e", context.request.id],
+        ["p", context.request.pubkey],
+        getInputTag(context.request),
+      ],
+      content: "",
+      created_at: now(),
+      // TODO add expiration tag when request had an expiration tag
+    };
 
-    // TODO add expiration tag when request had an expiration tag
-  };
+    const event = await ensureEncrypted(secretKey, resultEvent, context.request.pubkey, context.wasEncrypted);
+    const result = finalizeEvent(event, secretKey);
 
-  const event = await ensureEncrypted(secretKey, resultEvent, context.request.pubkey, context.wasEncrypted);
-  const result = finalizeEvent(event, secretKey);
+    // TODO add DVM error events for exeptions
+
+    logger("Will publish event: ", result);
+
+    await Promise.all(
+      pool
+        .publish(unique([...getRelays(context.request), ...(config.publish?.relays || [])]), result)
+        .map((p) => p.catch((e) => {})),
+    );
+  }
 
   const endTime = now();
 
@@ -290,17 +315,7 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
     uploadSpeed = Math.floor(uploadSpeed * 0.3 + (0.7 * video.mediaSize) / (endTime - startTime));
     logger(`Setting upload speed to ${uploadSpeed} bytes/s`);
   }
-
-  // TODO add DVM error events for exeptions
-
   logger(`${`Finished work for ${context.request.id} in ` + (endTime - startTime)} seconds`);
-  logger("Will publish event: ", result);
-
-  await Promise.all(
-    pool
-      .publish(unique([...getRelays(context.request), ...(config.publish?.relays || [])]), result)
-      .map((p) => p.catch((e) => {})),
-  );
 }
 
 async function doWork(context: JobContext, config: Config, rootEm: EntityManager) {

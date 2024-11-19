@@ -20,6 +20,7 @@ import { processVideoDownloadJob } from "./jobs/processVideoDownloadJob.js";
 import { processExtendMetaData } from "./jobs/processExtendMetaData.js";
 import { processNostrUpload } from "./jobs/processNostrUpload.js";
 import { startDVM } from "./dvm.js";
+import { createNoviaConfig } from "./init-setup.js";
 
 const logger = debug("novia");
 
@@ -134,6 +135,13 @@ program
   .description("Refresh the video index from disk")
   .action(async () => {
     refreshMedia();
+    process.exit(0);
+  });
+program
+  .command("init")
+  .description("Create an inital novia.yaml config file")
+  .action(async () => {
+    await createNoviaConfig();
     process.exit(0);
   });
 
