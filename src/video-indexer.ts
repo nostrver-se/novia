@@ -45,6 +45,7 @@ export async function updateVideoMetaData(vid: Video, filePath: string, videoSto
   vid.ageLimit = inf?.age_limit || 0;
   vid.width = inf?.width || 0; // TODO for twitch clips the sizes are wrong
   vid.height = inf?.height || 0;
+  vid.language = inf?.language || "";
 
   vid.thumbPath =
     meta.thumbnailPath && videoStore ? removeStorePathPrefixFromFilePath(videoStore, meta.thumbnailPath) : "";
@@ -100,6 +101,7 @@ export const processFile = async (
         console.log(`Added new mp4 file to database: ${filePath}`);
         return vid;
       } else {
+        // TODO archive job fails here without any error or notice
         logger(`File already exists in database: ${filePath}`);
       }
     }

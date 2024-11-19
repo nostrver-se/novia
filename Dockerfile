@@ -13,4 +13,6 @@ RUN npm run build
 # example media folder /app/media
 RUN mkdir media
 
+# ENV DEBUG=novia*
+
 ENTRYPOINT [ "node", "dist/index.js", "serve" ]

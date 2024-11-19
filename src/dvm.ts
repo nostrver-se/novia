@@ -97,9 +97,8 @@ export async function publishStatusEvent(
   );
 }
 
-const getUploadServers = (publishConfig: PublishConfig, additionalServers?: string[]) => {
-  const possibleServers = [...(publishConfig.blossomVideos || []), ...(additionalServers || [])];
-  return unique(possibleServers.filter((s) => !!s).map((s) => s.replace(/\/$/, "")));
+const mergeServers = (...aBunchOfServers: string[]) => {
+  return unique(aBunchOfServers.filter((s) => !!s).map((s) => s.replace(/\/$/, "")));
 };
 
 async function doWorkForArchive(context: ArchiveJobContext, config: Config, rootEm: EntityManager) {
@@ -217,7 +216,7 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
 
   const { videoPath, thumbPath } = fullPaths;
 
-  const uploadServers = getUploadServers(config.publish, context.target);
+  const uploadServers = mergeServers(...config.publish.blossomVideos, ...context.target);
 
   console.log(
     `Request for video ${video.id} by ${npubEncode(context.request.pubkey)}. Uploading to ${uploadServers.join(", ")}`,
@@ -426,7 +425,7 @@ async function ensureSubscriptions(config: Config, rootEm: EntityManager) {
 async function cleanupBlobs(publishConfig: PublishConfig) {
   const secretKey = decode(publishConfig.key || "").data as Uint8Array;
   const pubkey = getPublicKey(secretKey);
-  const uploadServers = getUploadServers(publishConfig);
+  const uploadServers = mergeServers(...publishConfig.blossomVideos, ...publishConfig.blossomThumbnails);
 
   for (const server of uploadServers) {
     const blobs = await listBlobs(server, pubkey, secretKey); // TODO add from/until to filter by timestamp
@@ -449,7 +448,7 @@ async function cleanupBlobs(publishConfig: PublishConfig) {
 
     // TODO stats for all blossom servers, maybe group for images/videos
     const storedSize = blobs.reduce((prev, val) => prev + val.size, 0);
-    logger(`Currently stored ${storedSize / 1024 / 1024 / 1024} GB.`);
+    logger(`Currently stored ${Math.floor((100 * storedSize) / 1024 / 1024 / 1024) / 100} GB on ${server}.`);
   }
 }
 

@@ -87,4 +87,7 @@ export class Video {
 
   @Property()
   event: string = "";
+
+  @Property()
+  language: string = "";
 }

@@ -72,6 +72,10 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
     content: video.title,
   };
 
+  if (video.language) {
+    event.tags.push(["l", video.language, "ISO-639-1"]);
+  }
+
   for (let i = 0; i < thumbUrls.length; i++) {
     event.tags.push(["thumb", thumbUrls[i]]); // deprecated?
     event.tags.push(["image", thumbUrls[i]]); // deprecated?

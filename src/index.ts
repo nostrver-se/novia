@@ -111,6 +111,7 @@ async function refreshMedia() {
   // Perform initial scan of all folders
   for (const store of localStores) {
     if (store.path) {
+      console.log(`Scanning path '${store.path}' for videos...'`);
       await scanDirectory(orm.em, localStores, store.path);
     }
   }
@@ -250,12 +251,12 @@ async function listVideos(seachText: string = "") {
 async function printStats() {
   const em = orm.em.fork();
 
-  const res = await em
+  const res = (await em
     .createQueryBuilder(Video, "v")
     .select(["store", raw("sum(media_size)/1024.0/1024/1024 as sizeGB"), raw("count(*) as count")])
     .groupBy(["store"])
-    .execute();
-  console.table(res);
+    .execute()) as { index: number; store: string; sizeGB: number; count: number }[];
+  console.table(res.map((o) => ({ ...o, sizeGB: Math.floor(100 * o.sizeGB) / 100 })));
 }
 
 async function startup() {

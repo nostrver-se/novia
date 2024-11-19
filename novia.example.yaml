@@ -1,0 +1,29 @@
+mediaStores: 
+  - id: media
+    type: local
+    path: ./data/media
+    watch: true
+
+database: ./data/novia.db
+
+download:
+  enabled: true
+  ytdlpPath: yt-dlp
+  tempPath: ./temp
+  targetStoreId: media
+
+publish:
+  enabled: true
+  key: nsecXXXXXXXXXXXXXXXX
+  blossomThumbnails:
+     - https://nostr.download
+  blossomVideos:
+     - https://nostr.download
+  relays:
+    - <nostr relay to upload video events>
+  videoBlobExpirationDays: 10
+  videoBlobCutoffSizeLimitMB: 2
+
+server:
+  port: 9090
+  enabled: true
