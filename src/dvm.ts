@@ -227,7 +227,7 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
   }
   const { videoPath, thumbPath } = fullPaths;
 
-  const uploadServers = mergeServers(...config.publish.blossomVideos, ...context.target);
+  const uploadServers = mergeServers(...config.publish.videoUpload.map(s=>s.url), ...context.target);
 
   console.log(
     `Request for video ${video.id} by ${npubEncode(context.request.pubkey)}. Uploading to ${uploadServers.join(", ")}`,
@@ -440,26 +440,31 @@ async function ensureSubscriptions(config: Config, rootEm: EntityManager) {
 async function cleanupBlobs(publishConfig: PublishConfig) {
   const secretKey = decode(publishConfig.key || "").data as Uint8Array;
   const pubkey = getPublicKey(secretKey);
-  const uploadServers = mergeServers(...publishConfig.blossomVideos, ...publishConfig.blossomThumbnails);
+  const uploadServers = mergeServers(...publishConfig.videoUpload.map(s=>s.url), ...publishConfig.thumbnailUpload);
 
   for (const server of uploadServers) {
     const blobs = await listBlobs(server, pubkey, secretKey); // TODO add from/until to filter by timestamp
 
-    const videoBlobCutoffSizeLimit = publishConfig.videoBlobCutoffSizeLimitMB * 1024 * 1024;
-    const videoBlobCutoffAgeLimit = now() - 60 * 60 * 24 * publishConfig.videoBlobExpirationDays;
-    const videoBlobCutoffMimeType = "video/mp4";
-
-    for (const blob of blobs) {
-      if (
-        blob.created < videoBlobCutoffAgeLimit &&
-        blob.size > videoBlobCutoffSizeLimit &&
-        blob.type == videoBlobCutoffMimeType
-      ) {
-        // delete >2MB videos
-        logger(`Deleting expired blob ${blob.url}`);
-        await deleteBlob(server, blob.sha256, secretKey);
+    const serverConfig = publishConfig.videoUpload.find(s=>s.url.startsWith(server));
+    if (serverConfig?.cleanUpMaxAgeDays) {
+      const videoBlobCutoffSizeLimit = (serverConfig?.cleanUpKeepSizeUnderMB || 0) * 1024 * 1024;
+      const videoBlobCutoffAgeLimit = now() - 60 * 60 * 24 * serverConfig.cleanUpMaxAgeDays;
+      const videoBlobCutoffMimeType = "video/mp4";
+  
+      for (const blob of blobs) {
+        if (
+          blob.created < videoBlobCutoffAgeLimit &&
+          blob.size > videoBlobCutoffSizeLimit &&
+          blob.type == videoBlobCutoffMimeType
+        ) {
+          // delete >2MB videos
+          logger(`Deleting expired blob ${blob.url}`);
+          await deleteBlob(server, blob.sha256, secretKey);
+        }
       }
+  
     }
+
 
     // TODO stats for all blossom servers, maybe group for images/videos
     const storedSize = blobs.reduce((prev, val) => prev + val.size, 0);

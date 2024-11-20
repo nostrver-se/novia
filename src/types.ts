@@ -17,11 +17,14 @@ export interface DownloadConfig {
 export interface PublishConfig {
   enabled: boolean;
   key: string;
-  blossomThumbnails: string[];
-  blossomVideos: string[];
+  thumbnailUpload: string[];
+  videoUpload: {
+    url: string;
+    maxUploadSizeMB: number
+    cleanUpMaxAgeDays: number
+    cleanUpKeepSizeUnderMB: number
+  }[];
   relays: string[];
-  videoBlobExpirationDays: number;
-  videoBlobCutoffSizeLimitMB: number;
   secret?: boolean;
 }
 

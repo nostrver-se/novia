@@ -102,7 +102,7 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
   }
 
   const fullPath = path.join(store.path, video.thumbPath);
-  const blossomServers = config.publish.blossomThumbnails;
+  const blossomServers = config.publish.thumbnailUpload;
   const thumbBlobs: BlobDescriptor[] = [];
 
   for (const blossomServer of blossomServers) {

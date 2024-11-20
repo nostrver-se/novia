@@ -78,11 +78,9 @@ export async function createNoviaConfig() {
   let publishConfig: PublishConfig = {
     enabled: false,
     key: "",
-    blossomThumbnails: [],
-    blossomVideos: [],
+    thumbnailUpload: [],
+    videoUpload: [],
     relays: [],
-    videoBlobExpirationDays: 10,
-    videoBlobCutoffSizeLimitMB: 2,
   };
 
   if (initialAnswers.publishEnabled) {
@@ -122,11 +120,11 @@ export async function createNoviaConfig() {
     publishConfig = {
       enabled: true,
       key: nsec,
-      blossomThumbnails: [publishAnswers.blossomThumbnails],
-      blossomVideos: [publishAnswers.blossomVideos],
+      thumbnailUpload: [publishAnswers.blossomThumbnails],
+      videoUpload: [
+        { url: publishAnswers.blossomVideos, cleanUpKeepSizeUnderMB: 2, cleanUpMaxAgeDays: 10, maxUploadSizeMB: 500 },
+      ],
       relays: relayList,
-      videoBlobExpirationDays: 10,
-      videoBlobCutoffSizeLimitMB: 2,
     };
   }
 

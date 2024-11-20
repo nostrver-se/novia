@@ -5,3 +5,6 @@ tsconfig.json
 novia.*
 temp/
 media/
+Dockerfile
+.dockerignore
+docker-compose.yaml
