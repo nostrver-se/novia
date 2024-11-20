@@ -8,3 +8,4 @@ media/
 Dockerfile
 .dockerignore
 docker-compose.yaml
+data/

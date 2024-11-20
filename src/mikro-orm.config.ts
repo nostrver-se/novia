@@ -6,6 +6,7 @@ import { Video } from "./entity/Video.js";
 const ormConfig: Options = {
   // for simplicity, we use the SQLite database, as it's available pretty much everywhere
   driver: SqliteDriver,
+  // dbName: "./novia.db",
 
   // folder-based discovery setup, using common filename suffix
   entities: [Queue, Video], // we will use the ts-morph reflection, an alternative to the default reflect-metadata provider
