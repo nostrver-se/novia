@@ -1,6 +1,7 @@
-import { accessSync, existsSync, readFileSync } from "fs";
+import { accessSync, existsSync, mkdirSync, readFileSync } from "fs";
 import { Config } from "./types.js";
 import * as yaml from "js-yaml";
+import { pathExists } from "fs-extra";
 
 export function readConfigSync(): Config {
   const configPaths = ["./novia.yaml", "/data/novia.yaml"];
@@ -16,7 +17,7 @@ export function readConfigSync(): Config {
   }
 
   if (!config) {
-    console.warn("Config not found! Using fallback config...");
+    console.error("Config not found! Using fallback config...");
 
     config = {
       mediaStores: [{ id: "store", type: "local", path: "./media", watch: true }],
@@ -26,6 +27,10 @@ export function readConfigSync(): Config {
     };
   }
 
+  return config;
+}
+
+export async function validateConfig(config: Config) {
   if (config.mediaStores.find((ms) => ms.id == config.download?.targetStoreId) == undefined) {
     throw new Error(`Download store ${config.download?.targetStoreId} not found in media stores.`);
   }
@@ -39,5 +44,7 @@ export function readConfigSync(): Config {
     }
   }
 
-  return config;
+  if (config.download?.tempPath && await pathExists(config.download?.tempPath)) {
+    mkdirSync(config.download?.tempPath, { recursive: true });
+  }
 }

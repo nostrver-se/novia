@@ -28,21 +28,18 @@ function createOriginalWebUrl(video: Video) {
 }
 
 export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescriptor[]): EventTemplate {
-  const videoBlobUrl = "http://localhost:9090/" + video.videoSha256 + ".mp4"; // TODO only for local demo
-
-  const url =
-    video.videoPath.endsWith(".mp4") || video.videoPath.endsWith(".webm") ? videoBlobUrl : videoBlobUrl + ".mp4"; // TODO fix for other formats
 
   const thumbUrls = thumbBlobs.map((thumbBlob) =>
     thumbBlob.url.endsWith(".webp") || thumbBlob.url.endsWith(".jpg") ? thumbBlob.url : thumbBlob.url + ".webp",
   ); // TODO fix for other formats;
 
+  const videoMimeType = getMimeTypeByPath(video.videoPath);
+
   const imeta = [
     "imeta",
     `dim ${video.width}x${video.height}`,
-    `url ${url}`,
     `x ${video.videoSha256}`,
-    `m video/mp4`, // TODO extract from extension or add to DB
+    `m ${videoMimeType}`, // TODO extract from extension or add to DB
   ];
   for (let i = 0; i < thumbUrls.length; i++) {
     imeta.push(`image ${thumbUrls[i]}`);
@@ -53,18 +50,17 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
     kind: video.width >= video.height ? 34235 : 34236,
     tags: [
       ["d", `${video.source}-${video.externalId}`],
-      ["url", url], // deprecated
       ["x", video.videoSha256], // deprecated
       ["title", video.title],
       ["summary", video.description], // deprecated
       ["alt", video.description], // deprecated
       ["published_at", `${video.published.getTime()}`],
       ["client", "nostr-video-archive"],
-      ["m", "video/mp4"], // TODO fix for other formats
+      ["m", videoMimeType], 
       ["size", `${video.mediaSize}`],
       ["duration", `${video.duration}`],
-      ["c", video.channelName, "author"],
-      ["c", video.source, "source"],
+      ["c", video.channelName, "author"], // TODO check if c or l tag is better
+      ["c", video.source, "source"], // TODO check if c or l tag is better
       imeta,
       ["r", createOriginalWebUrl(video)],
       ...(video.tags || []).map((tag) => ["t", tag]),

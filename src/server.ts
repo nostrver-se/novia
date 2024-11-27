@@ -29,6 +29,7 @@ export function startLocalServer(rootEm: EntityManager, mediaStores: MediaStore[
     const { url } = req.params;
     await queueDownloadJob(rootEm, url);
     res.status(200);
+    res.send();
   });
 
   app.get("/videos", async (req: Request, res: Response, next: NextFunction) => {
@@ -195,11 +196,48 @@ export function startLocalServer(rootEm: EntityManager, mediaStores: MediaStore[
 
   app.get("/", async (req: Request, res: Response, next: NextFunction) => {
     res.status(200);
-    res.send(`<html><body><h1>novia</h1>
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>novia</title>
+      <script>
+        async function sendUrl() {
+          const inputField = document.getElementById('urlInput');
+          const url = inputField.value;
+          const encodedUrl = encodeURIComponent(url);
+          const apiUrl = \`/add/\${encodedUrl}\`;
+    
+          try {
+            const response = await fetch(apiUrl, { method: 'GET' });
+            if (response.ok) {
+              const result = await response.text();
+              inputField.value = "";
+            } else {
+              alert('Request failed: ' + response.statusText);
+            }
+          } catch (error) {
+            alert('Error: ' + error.message);
+          }
+        }
+      </script>
+    </head>
+    <body>
+      <h1>novia</h1>
       <a href='/videos'>GET /videos</a><br>
       GET /:hash (retreive a blob with a SHA256 hash)<br> 
       GET /add/:url (add a new video download, url need to be uri encoded)<br> 
-       </body></html>`);
+
+      <h1>Fetch URL</h1>
+      <input type="text" id="urlInput" placeholder="Enter a URL" />
+      <button onclick="sendUrl()">Fetch</button>
+    </body>
+    </html>
+  `;
+  res.send(htmlContent);
+   
   });
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

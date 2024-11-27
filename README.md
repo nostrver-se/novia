@@ -1,4 +1,4 @@
-# novia - Videos on NOSTR
+# novia - NOstr VIdeo Archive
 
 novia is the glue that connects video archive tools to NOSTR. It can be used
 as a **standalone archive tool** or extend other open source tools like:
@@ -170,6 +170,22 @@ Then you can run `serve` to start the service and answer video requests.
 npx novia serve
 ```
 
+# Known issues / limitations
+
+There are several issues that have not been solved yet, here the most important:
+
+- Currently all running novia instances download a video triggered by an archive request. There is no coordination or circuit
+  breaker, when someone else is downloading the video.
+- There is currently no way to share an archived video with another
+  archive (incl. metadata and thumbnail).
+- All novia instances that download a video also publish the video, i.e. there will be
+  multiple video events from different novia instances. Additional checks if a video already
+  exists, might be needed.
+- Blossom servers don't upload of support large files. A possible solution is chunking of
+  files (cherry tree).
+- There are not many blossom servers that support large amounts of content. This will hopefully
+  be improved with payed blossom servers (soon).
+
 # NOSTR events
 
 ## Video Events
@@ -191,7 +207,7 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 ```json
 {
   "kind": 5205,
-  "tags": [["i", "https://www.youtube.com/watch?v=CQ4G2wLdGSE", "url", "", "archive"]]
+  "tags": [["i", "https://www.youtube.com/watch?v=CQ4G2wLdGSE", "url"]]
 }
 ```
 
@@ -205,14 +221,13 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 
 ```json
 {
-  "kind": 5205,
+  "kind": 5206,
   "tags": [
     [
       "i",
       "0d1664a9709d385e2dc50e24de0d82fc6394bf93dfc60707dcf0bba2013f14f9",
       "event",
-      "wss://some-video-relay.net/",
-      "upload"
+      "wss://some-video-relay.net/"
     ],
     ["param", "x", "9bc58f0248ecfe4e2f3aa850edcb17725b9ac91bbe1b8d337617f431c66b8366"],
     ["param", "target", "https://nostr.download/"]

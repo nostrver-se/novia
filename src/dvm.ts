@@ -17,11 +17,14 @@ import { doComputeSha256 } from "./jobs/processShaHashes.js";
 import { doNostrUploadForVideo } from "./jobs/processNostrUpload.js";
 
 export const DVM_STATUS_KIND = 7000;
-
 export const DVM_VIDEO_ARCHIVE_REQUEST_KIND = 5205;
 export const DVM_VIDEO_ARCHIVE_RESULT_KIND = 6205;
+export const DVM_VIDEO_UPLOAD_REQUEST_KIND = 5206;
+export const DVM_VIDEO_UPLOAD_RESULT_KIND = 6206;
 
 export const BLOSSOM_AUTH_KIND = 24242;
+
+const ONE_DAY_IN_SECONDS = 24 * 60 * 60;
 
 export const pool = new SimplePool();
 
@@ -56,14 +59,14 @@ const now = () => Math.floor(new Date().getTime() / 1000);
 async function shouldAcceptJob(request: NostrEvent): Promise<JobContext> {
   const input = getInput(request);
 
-  if (input.type === "event" && input.marker == "upload") {
+  if (input.type === "event" && request.kind == DVM_VIDEO_UPLOAD_REQUEST_KIND) {
     const x = getInputParam(request, "x");
     const target = getInputParams(request, "target");
     return { type: "upload", x, eventId: input.value, target, request, wasEncrypted: false };
-  } else if (input.type === "url" && input.marker == "archive") {
+  } else if (input.type === "url" && request.kind == DVM_VIDEO_ARCHIVE_REQUEST_KIND) {
     // TODO check allowed URLs (regexs in config?)
     return { type: "archive", url: input.value, request, wasEncrypted: false };
-  } else throw new Error(`Unknown input type ${input.type} ${input.marker}`);
+  } else throw new Error(`Unknown input type ${input.type} ${request.kind}`);
 }
 
 export async function publishStatusEvent(
@@ -78,6 +81,7 @@ export async function publishStatusEvent(
     ["status", status],
     ["e", context.request.id],
     ["p", context.request.pubkey],
+    ["expiration", `${now() + ONE_DAY_IN_SECONDS}`]
   ];
   tags.push(...additionalTags);
 
@@ -152,10 +156,10 @@ async function doWorkForArchive(context: ArchiveJobContext, config: Config, root
             ["e", context.request.id],
             ["p", context.request.pubkey],
             getInputTag(context.request),
+            ["expiration", `${now() + ONE_DAY_IN_SECONDS}`]
           ],
           content: JSON.stringify(nostrResult),
           created_at: now(),
-          // TODO add expiration tag when request had an expiration tag
         };
 
         logger(resultEvent);
@@ -227,7 +231,7 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
   }
   const { videoPath, thumbPath } = fullPaths;
 
-  const uploadServers = mergeServers(...config.publish.videoUpload.map(s=>s.url), ...context.target);
+  const uploadServers = mergeServers(...config.publish.videoUpload.map((s) => s.url), ...context.target);
 
   console.log(
     `Request for video ${video.id} by ${npubEncode(context.request.pubkey)}. Uploading to ${uploadServers.join(", ")}`,
@@ -282,16 +286,16 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
 
   if (!config.publish.secret) {
     const resultEvent = {
-      kind: DVM_VIDEO_ARCHIVE_RESULT_KIND,
+      kind: DVM_VIDEO_UPLOAD_RESULT_KIND,
       tags: [
         ["request", JSON.stringify(context.request)],
         ["e", context.request.id],
         ["p", context.request.pubkey],
         getInputTag(context.request),
+        ["expiration", `${now() + ONE_DAY_IN_SECONDS}`]
       ],
       content: "",
       created_at: now(),
-      // TODO add expiration tag when request had an expiration tag
     };
 
     const event = await ensureEncrypted(secretKey, resultEvent, context.request.pubkey, context.wasEncrypted);
@@ -367,7 +371,7 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
   if (!seenEvents.has(event.id)) {
     try {
       seenEvents.add(event.id);
-      if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND) {
+      if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND || DVM_VIDEO_UPLOAD_REQUEST_KIND) {
         const { wasEncrypted, event: decryptedEvent } = await ensureDecrypted(secretKey, event);
         const context = await shouldAcceptJob(decryptedEvent);
         context.wasEncrypted = wasEncrypted;
@@ -396,7 +400,9 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
 
 const subscriptions: { [key: string]: Subscription } = {};
 
-const filters: Filter[] = [{ kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND], since: now() - 60 }]; // look 60s back
+const filters: Filter[] = [
+  { kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_UPLOAD_REQUEST_KIND], since: now() - 60 },
+]; // look 60s back
 
 async function ensureSubscriptions(config: Config, rootEm: EntityManager) {
   const relays = config.publish?.relays || [];
@@ -440,17 +446,17 @@ async function ensureSubscriptions(config: Config, rootEm: EntityManager) {
 async function cleanupBlobs(publishConfig: PublishConfig) {
   const secretKey = decode(publishConfig.key || "").data as Uint8Array;
   const pubkey = getPublicKey(secretKey);
-  const uploadServers = mergeServers(...publishConfig.videoUpload.map(s=>s.url), ...publishConfig.thumbnailUpload);
+  const uploadServers = mergeServers(...publishConfig.videoUpload.map((s) => s.url), ...publishConfig.thumbnailUpload);
 
   for (const server of uploadServers) {
     const blobs = await listBlobs(server, pubkey, secretKey); // TODO add from/until to filter by timestamp
 
-    const serverConfig = publishConfig.videoUpload.find(s=>s.url.startsWith(server));
+    const serverConfig = publishConfig.videoUpload.find((s) => s.url.startsWith(server));
     if (serverConfig?.cleanUpMaxAgeDays) {
       const videoBlobCutoffSizeLimit = (serverConfig?.cleanUpKeepSizeUnderMB || 0) * 1024 * 1024;
       const videoBlobCutoffAgeLimit = now() - 60 * 60 * 24 * serverConfig.cleanUpMaxAgeDays;
       const videoBlobCutoffMimeType = "video/mp4";
-  
+
       for (const blob of blobs) {
         if (
           blob.created < videoBlobCutoffAgeLimit &&
@@ -462,9 +468,7 @@ async function cleanupBlobs(publishConfig: PublishConfig) {
           await deleteBlob(server, blob.sha256, secretKey);
         }
       }
-  
     }
-
 
     // TODO stats for all blossom servers, maybe group for images/videos
     const storedSize = blobs.reduce((prev, val) => prev + val.size, 0);
