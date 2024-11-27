@@ -21,14 +21,13 @@ function createOriginalWebUrl(video: Video) {
   }
 
   if (video.source == "twitter") {
-    return ``;
+    return ``; // TODO fix?
   }
   // TODO add more
   return ``;
 }
 
 export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescriptor[]): EventTemplate {
-
   const thumbUrls = thumbBlobs.map((thumbBlob) =>
     thumbBlob.url.endsWith(".webp") || thumbBlob.url.endsWith(".jpg") ? thumbBlob.url : thumbBlob.url + ".webp",
   ); // TODO fix for other formats;
@@ -56,7 +55,7 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
       ["alt", video.description], // deprecated
       ["published_at", `${video.published.getTime()}`],
       ["client", "nostr-video-archive"],
-      ["m", videoMimeType], 
+      ["m", videoMimeType],
       ["size", `${video.mediaSize}`],
       ["duration", `${video.duration}`],
       ["c", video.channelName, "author"], // TODO check if c or l tag is better
@@ -64,6 +63,7 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
       imeta,
       ["r", createOriginalWebUrl(video)],
       ...(video.tags || []).map((tag) => ["t", tag]),
+      ["client", "novia"],
     ],
     content: video.title,
   };

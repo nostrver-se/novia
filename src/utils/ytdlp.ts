@@ -5,6 +5,7 @@ import { tmpdir } from "os";
 import path from "path";
 import { promisify } from "util";
 import { DownloadConfig } from "../types.js";
+import debounce from "lodash/debounce.js";
 
 const execAsync = promisify(exec);
 
@@ -183,11 +184,82 @@ export async function analyzeVideoFolder(
   };
 }
 
+// Define an interface for the extracted download information
+export interface DownloadInfo {
+  percentage: number;
+  totalSizeMiB: number;
+  speedMiBps: number;
+  etaSeconds: number; // ETA in seconds
+  fragCurrent: number;
+  fragTotal: number;
+}
+
+/**
+ * Parses a console output string to extract download information.
+ * @param input - The console output string to parse, potentially containing multiple lines.
+ * @returns An array of DownloadInfo objects with extracted numbers.
+ */
+function parseDownloadInfo(line: string): DownloadInfo | undefined {
+  // Regular expression to match and capture the required parts of the string
+  const regex =
+    /^\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~\s+(\d+(?:\.\d+)?)MiB\s+at\s+(\d+(?:\.\d+)?)MiB\/s\s+ETA\s+(\d{2}):(\d{2})\s+\(frag\s+(\d+)\/(\d+)\)(?:\s+\+\d+ms)?$/;
+
+  const results: DownloadInfo[] = [];
+
+  const trimmedLine = line.trim();
+  if (trimmedLine.length === 0) return;
+
+  const match = trimmedLine.match(regex);
+  if (!match) {
+    // If the line doesn't match the expected format, ignore it
+    return;
+  }
+
+  // Destructure the captured groups from the regex match
+  const [
+    _fullMatch,
+    percentageStr,
+    totalSizeStr,
+    speedStr,
+    etaMinutesStr,
+    etaSecondsStr,
+    fragCurrentStr,
+    fragTotalStr,
+  ] = match;
+
+  // Parse the captured strings into appropriate numerical types
+  const percentage = parseFloat(percentageStr);
+  const totalSizeMiB = parseFloat(totalSizeStr);
+  const speedMiBps = parseFloat(speedStr);
+  const etaMinutes = parseInt(etaMinutesStr, 10);
+  const etaSeconds = parseInt(etaSecondsStr, 10);
+  const fragCurrent = parseInt(fragCurrentStr, 10);
+  const fragTotal = parseInt(fragTotalStr, 10);
+
+  // Convert ETA to total seconds
+  const totalEtaSeconds = etaMinutes * 60 + etaSeconds;
+
+  return {
+    percentage,
+    totalSizeMiB,
+    speedMiBps,
+    etaSeconds: totalEtaSeconds,
+    fragCurrent,
+    fragTotal,
+  };
+}
+
 export async function downloadYoutubeVideo(
   videoUrl: string,
   skipVideo = false,
   config: DownloadConfig,
+  onProgress?: (info: DownloadInfo) => Promise<void>,
 ): Promise<VideoContent> {
+
+  const publishProgress = onProgress && debounce(onProgress, 5000, {
+    maxWait: 0
+  });
+
   return new Promise((resolve, reject) => {
     try {
       // Create a temporary directory with a random name
@@ -220,8 +292,19 @@ export async function downloadYoutubeVideo(
       let stdout = "";
       let stderr = "";
 
-      ytDlp.stdout.on("data", (data) => {
-        stdout += data.toString();
+      ytDlp.stdout.on("data", async (data) => {
+        // logger(data.toString());
+        const line = data.toString();
+
+        if (publishProgress) {
+          const downloadInfo = parseDownloadInfo(line);
+          if (downloadInfo) {
+            await publishProgress(downloadInfo);
+          }
+        }
+
+
+        stdout += line;
       });
 
       ytDlp.stderr.on("data", (data) => {

@@ -39,16 +39,16 @@ export interface ArchiveJobContext extends BaseJobContext {
   url: string;
 }
 
-// Subtype for "upload"
-export interface UploadJobContext extends BaseJobContext {
-  type: "upload";
+// Subtype for "recover"
+export interface RecoverJobContext extends BaseJobContext {
+  type: "recover";
   x: string;
   eventId: string;
   target: string[];
 }
 
 // Union type
-export type JobContext = ArchiveJobContext | UploadJobContext;
+export type JobContext = ArchiveJobContext | RecoverJobContext;
 
 let uploadSpeed = 2 * 1024 * 1024;
 
@@ -62,7 +62,7 @@ async function shouldAcceptJob(request: NostrEvent): Promise<JobContext> {
   if (input.type === "event" && request.kind == DVM_VIDEO_UPLOAD_REQUEST_KIND) {
     const x = getInputParam(request, "x");
     const target = getInputParams(request, "target");
-    return { type: "upload", x, eventId: input.value, target, request, wasEncrypted: false };
+    return { type: "recover", x, eventId: input.value, target, request, wasEncrypted: false };
   } else if (input.type === "url" && request.kind == DVM_VIDEO_ARCHIVE_REQUEST_KIND) {
     // TODO check allowed URLs (regexs in config?)
     return { type: "archive", url: input.value, request, wasEncrypted: false };
@@ -81,7 +81,7 @@ export async function publishStatusEvent(
     ["status", status],
     ["e", context.request.id],
     ["p", context.request.pubkey],
-    ["expiration", `${now() + ONE_DAY_IN_SECONDS}`]
+    ["expiration", `${now() + ONE_DAY_IN_SECONDS}`],
   ];
   tags.push(...additionalTags);
 
@@ -113,11 +113,17 @@ async function doWorkForArchive(context: ArchiveJobContext, config: Config, root
   logger(msg);
 
   if (!config.download?.secret) {
-    publishStatusEvent(context, "processing", JSON.stringify({ msg }), [], secretKey, relays);
+    await publishStatusEvent(context, "processing", JSON.stringify({ msg }), [], secretKey, relays);
   }
 
   try {
-    const targetVideoPath = await processVideoDownloadJob(config, context.url);
+    const targetVideoPath = await processVideoDownloadJob(config, context.url, false, async (dl) => {
+      const msg = `Download in progress: ${dl.percentage}% done at ${dl.speedMiBps}MB/s`;
+      logger(msg);
+      if (!config.download?.secret) {
+        await publishStatusEvent(context, "partial", JSON.stringify({ msg }), [], secretKey, relays);
+      }
+    });
     logger(targetVideoPath);
 
     if (!config.download?.secret) {
@@ -156,7 +162,7 @@ async function doWorkForArchive(context: ArchiveJobContext, config: Config, root
             ["e", context.request.id],
             ["p", context.request.pubkey],
             getInputTag(context.request),
-            ["expiration", `${now() + ONE_DAY_IN_SECONDS}`]
+            ["expiration", `${now() + ONE_DAY_IN_SECONDS}`],
           ],
           content: JSON.stringify(nostrResult),
           created_at: now(),
@@ -182,7 +188,7 @@ async function doWorkForArchive(context: ArchiveJobContext, config: Config, root
   }
 }
 
-async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm: EntityManager) {
+async function doWorkForRecover(context: RecoverJobContext, config: Config, rootEm: EntityManager) {
   if (!config.publish) {
     throw new Error("publish config not found.");
   }
@@ -250,6 +256,7 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
         video.videoSha256,
       );
       logger(`Uploaded video file: ${videoBlob.url}`);
+      // TODO maybe publish a status evenet for each server?
     } catch (err) {
       const msg = `Upload of video to ${server} failed.`;
       console.error(msg, err);
@@ -292,7 +299,7 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
         ["e", context.request.id],
         ["p", context.request.pubkey],
         getInputTag(context.request),
-        ["expiration", `${now() + ONE_DAY_IN_SECONDS}`]
+        ["expiration", `${now() + ONE_DAY_IN_SECONDS}`],
       ],
       content: "",
       created_at: now(),
@@ -325,8 +332,8 @@ async function doWorkForUpload(context: UploadJobContext, config: Config, rootEm
 async function doWork(context: JobContext, config: Config, rootEm: EntityManager) {
   if (context.type == "archive") {
     await doWorkForArchive(context, config, rootEm);
-  } else if (context.type == "upload") {
-    await doWorkForUpload(context, config, rootEm);
+  } else if (context.type == "recover") {
+    await doWorkForRecover(context, config, rootEm);
   }
 }
 

@@ -2,7 +2,7 @@ import path from "path";
 import { extractThumbnails, ThumbnailContent } from "../utils/ffmpeg.js";
 import { Config } from "../types.js";
 import { removeFieldsFromJson } from "../utils/utils.js";
-import { downloadYoutubeVideo } from "../utils/ytdlp.js";
+import { DownloadInfo, downloadYoutubeVideo } from "../utils/ytdlp.js";
 import { mkdir } from "fs/promises";
 import { move } from "../utils/move.js";
 import { rmSync } from "fs";
@@ -10,13 +10,14 @@ import { rmSync } from "fs";
 export async function processVideoDownloadJob(
   config: Config,
   url: string,
-  skipVideo: boolean = false
+  skipVideo: boolean = false,
+  onProgress?: (info: DownloadInfo) => Promise<void>
 ) {
   if (config.download == undefined) {
     throw new Error(`Download config is not defined.`);
   }
 
-  const download = await downloadYoutubeVideo(url, skipVideo, config.download);
+  const download = await downloadYoutubeVideo(url, skipVideo, config.download, onProgress);
 
   if (
     (!skipVideo && !download.videoPath) ||
