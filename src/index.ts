@@ -8,7 +8,7 @@ import { formatDuration } from "./utils/utils.js";
 import { Video } from "./entity/Video.js";
 import { readConfigSync, validateConfig } from "./config.js";
 import { scanDirectory, setupWatcher as setupNewVideoWatcher } from "./video-indexer.js";
-import { Config } from "./types.js";
+import { Config, MediaStore } from "./types.js";
 import { getPublicKey, nip19 } from "nostr-tools";
 import debug from "debug";
 import { startLocalServer } from "./server.js";
@@ -19,7 +19,7 @@ import { processCreateHashesJob } from "./jobs/processShaHashes.js";
 import { processVideoDownloadJob } from "./jobs/processVideoDownloadJob.js";
 import { processExtendMetaData } from "./jobs/processExtendMetaData.js";
 import { processNostrUpload } from "./jobs/processNostrUpload.js";
-import { startDVM } from "./dvm.js";
+import { startDVM } from "./dvm/index.js";
 import { createNoviaConfig } from "./init-setup.js";
 
 const logger = debug("novia");
@@ -106,15 +106,20 @@ async function stopProcessing() {
   }
 }
 
-async function refreshMedia() {
-  const localStores = appConfig.mediaStores.filter((s) => (s.type = "local"));
-  // Perform initial scan of all folders
+
+async function scanAllStoresForNewVideos(localStores: MediaStore[]) {
   for (const store of localStores) {
     if (store.path) {
       console.log(`Scanning path '${store.path}' for videos...'`);
       await scanDirectory(orm.em, localStores, store.path);
     }
   }
+}
+
+async function refreshMedia() {
+  const localStores = appConfig.mediaStores.filter((s) => (s.type = "local"));
+
+  await scanAllStoresForNewVideos(localStores);
 
   await validateMetaData(orm.em, localStores);
 
@@ -289,8 +294,13 @@ console.log(
 
 if (appConfig.publish?.key) {
   const pubkeyHex = getPublicKey(nip19.decode(appConfig.publish?.key).data as Uint8Array);
-  console.log("pubkey", pubkeyHex, nip19.npubEncode(pubkeyHex));
+  console.log(`Identity: ${nip19.npubEncode(pubkeyHex)} (Hex: ${pubkeyHex})`);
 }
 
-process.on("SIGINT", () => process.exit(0)); // Ctrl+C
-process.on("SIGTERM", () => process.exit(0)); // Termination signal
+async function shutdown() {
+  process.exit();
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+process.once("SIGUSR2", shutdown);

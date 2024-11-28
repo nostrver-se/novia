@@ -6,6 +6,7 @@ import { exec } from "child_process";
 import util from "util";
 import debug from "debug";
 import { Video } from "../entity/Video.js";
+import { unique } from "./array.js";
 
 const logger = debug("novia:utils");
 
@@ -204,3 +205,10 @@ export function getMimeTypeByPath(path: string): string {
       return "application/octet-stream"; // Default binary type
   }
 }
+
+export const now = () => Math.floor(new Date().getTime() / 1000);
+
+
+export const mergeServers = (...aBunchOfServers: string[]) => {
+  return unique(aBunchOfServers.filter((s) => !!s).map((s) => s.replace(/\/$/, "")));
+};

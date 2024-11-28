@@ -1,4 +1,4 @@
-import { Event } from "nostr-tools";
+import { Event, EventTemplate, nip04 } from "nostr-tools";
 
 export function getInputTag(e: Event) {
   const tag = e.tags.find((t) => t[0] === "i");
@@ -30,3 +30,20 @@ export function getInputParam(e: Event, k: string, defaultValue?: string) {
   return value;
 }
 
+export async function ensureEncrypted(
+  secretKey: Uint8Array,
+  event: EventTemplate,
+  recipentPubKey: string,
+  wasEncrypted: boolean,
+) {
+  if (!wasEncrypted) return event;
+
+  const tagsToEncrypt = event.tags.filter((t) => t[0] !== "p" && t[0] !== "e");
+  const encText = await nip04.encrypt(secretKey, recipentPubKey, JSON.stringify(tagsToEncrypt));
+
+  return {
+    ...event,
+    content: encText,
+    tags: (event.tags = [...event.tags.filter((t) => t[0] == "e"), ["p", recipentPubKey], ["encrypted"]]),
+  };
+}
