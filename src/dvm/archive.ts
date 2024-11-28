@@ -8,10 +8,10 @@ import { processVideoDownloadJob } from "../jobs/processVideoDownloadJob.js";
 import { processFile } from "../video-indexer.js";
 import { doComputeSha256 } from "../jobs/processShaHashes.js";
 import { doNostrUploadForVideo } from "../jobs/processNostrUpload.js";
-import { now } from "lodash";
 import { ensureEncrypted, getInputTag, getRelays } from "../helpers/dvm.js";
 import { finalizeEvent, SimplePool } from "nostr-tools";
 import { unique } from "../utils/array.js";
+import { now } from "../utils/utils.js";
 
 const logger = debug("novia:dvm:archive");
 

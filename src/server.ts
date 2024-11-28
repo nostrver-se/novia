@@ -236,8 +236,7 @@ export function startLocalServer(rootEm: EntityManager, mediaStores: MediaStore[
     </body>
     </html>
   `;
-  res.send(htmlContent);
-   
+    res.send(htmlContent);
   });
 
   app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

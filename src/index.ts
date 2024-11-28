@@ -106,7 +106,6 @@ async function stopProcessing() {
   }
 }
 
-
 async function scanAllStoresForNewVideos(localStores: MediaStore[]) {
   for (const store of localStores) {
     if (store.path) {
@@ -304,3 +303,8 @@ async function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 process.once("SIGUSR2", shutdown);
+
+if (global.WebSocket == undefined) {
+  console.error("Websocket support is required. Use NodeJS >= v.21");
+  process.exit(1);
+}

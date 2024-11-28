@@ -44,7 +44,7 @@ export async function validateConfig(config: Config) {
     }
   }
 
-  if (config.download?.tempPath && await pathExists(config.download?.tempPath)) {
+  if (config.download?.tempPath && (await pathExists(config.download?.tempPath))) {
     mkdirSync(config.download?.tempPath, { recursive: true });
   }
 }

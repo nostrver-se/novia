@@ -20,9 +20,9 @@ export interface PublishConfig {
   thumbnailUpload: string[];
   videoUpload: {
     url: string;
-    maxUploadSizeMB: number
-    cleanUpMaxAgeDays: number
-    cleanUpKeepSizeUnderMB: number
+    maxUploadSizeMB: number;
+    cleanUpMaxAgeDays: number;
+    cleanUpKeepSizeUnderMB: number;
   }[];
   relays: string[];
   secret?: boolean;
