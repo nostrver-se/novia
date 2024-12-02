@@ -27,11 +27,20 @@ export interface PublishConfig {
   }[];
   relays: string[];
   secret?: boolean;
+  autoUpload?: {
+    enabled: boolean;
+    maxVideoSizeMB: number;
+  };
 }
 
 export interface ServerConfig {
   enabled: boolean;
   port: number;
+}
+
+export interface FetchConfig {
+  enabled: boolean;
+  match: string[];
 }
 
 export interface Config {
@@ -40,4 +49,5 @@ export interface Config {
   download?: DownloadConfig;
   publish?: PublishConfig;
   server?: ServerConfig;
+  fetch?: FetchConfig;
 }

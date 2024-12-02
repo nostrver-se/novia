@@ -124,6 +124,10 @@ export async function createNoviaConfig() {
       videoUpload: [
         { url: publishAnswers.blossomVideos, cleanUpKeepSizeUnderMB: 2, cleanUpMaxAgeDays: 10, maxUploadSizeMB: 500 },
       ],
+      autoUpload: {
+        enabled: false,
+        maxVideoSizeMB: 5,
+      },
       relays: relayList,
     };
   }

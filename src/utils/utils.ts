@@ -203,6 +203,9 @@ export function getMimeTypeByPath(path: string): string {
 
     case ".json":
       return "application/json";
+    case ".info.json":
+      return "application/json";
+
     default:
       return "application/octet-stream"; // Default binary type
   }

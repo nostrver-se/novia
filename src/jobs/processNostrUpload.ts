@@ -6,7 +6,7 @@ import path from "path";
 import { BlobDescriptor, uploadFile } from "../helpers/blossom.js";
 import { EventTemplate, finalizeEvent, nip19, SimplePool } from "nostr-tools";
 import debug from "debug";
-import { getMimeTypeByPath } from "../utils/utils.js";
+import { findFullPathsForVideo, getMimeTypeByPath } from "../utils/utils.js";
 import { buildArchiveResult } from "./results.js";
 
 const logger = debug("novia:nostrupload");
@@ -64,7 +64,7 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
       ["r", createOriginalWebUrl(video)],
       ...(video.tags || []).map((tag) => ["t", tag]),
       ["client", "novia"],
-      ["info", video.infoSha256] // non standard field - but there is not great way to store the info json data. 
+      ["info", video.infoSha256], // non standard field - but there is not great way to store the info json data.
     ],
     content: video.title,
   };
@@ -93,45 +93,44 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
 
   const secretKey = nip19.decode(config.publish.key).data as Uint8Array;
 
-  const store = config.mediaStores.find((st) => st.id == video.store);
-  if (!store || !store.path) {
-    return; // skip if store is not found
+  const fullPaths = findFullPathsForVideo(video, config.mediaStores);
+  if (!fullPaths) {
+    console.error("Could not resolve the full paths for the video. " + video.id);
+    return;
   }
 
-  const blossomServers = config.publish.thumbnailUpload;
+  const thumbnailServers = config.publish.thumbnailUpload;
   const thumbBlobs: BlobDescriptor[] = [];
 
-  for (const blossomServer of blossomServers) {
-  const thumbPath = path.join(store.path, video.thumbPath);
-    console.log(`Uploading ${thumbPath} to ${blossomServer}`);
+  for (const blossomServer of thumbnailServers) {
+    console.log(`Uploading ${fullPaths.thumbPath} to ${blossomServer}`);
 
     try {
       const thumbBlob = await uploadFile(
-        thumbPath,
+        fullPaths.thumbPath,
         blossomServer,
         getMimeTypeByPath(path.extname(video.thumbPath)),
         path.basename(video.thumbPath),
         "Upload Thumbnail",
         secretKey,
-        video.thumbSha256, // optional
+        video.thumbSha256,
       );
       thumbBlobs.push(thumbBlob);
     } catch (err) {
       console.log(err);
     }
 
-    const infoPath = path.join(store.path, video.infoPath);
-    console.log(`Uploading ${infoPath} to ${blossomServer}`);
+    console.log(`Uploading ${fullPaths.infoPath} to ${blossomServer}`);
 
     try {
       const infoBlob = await uploadFile(
-        infoPath,
+        fullPaths.infoPath,
         blossomServer,
         getMimeTypeByPath(path.extname(video.infoPath)),
         path.basename(video.infoPath),
         "Upload info json",
         secretKey,
-        video.infoSha256, // optional
+        video.infoSha256,
       );
       console.log(infoBlob);
     } catch (err) {
@@ -141,6 +140,37 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
 
   if (thumbBlobs.length == 0) {
     throw new Error(`Failed uploading thumbnails for video ${video.id}`);
+  }
+
+  if (config.publish.autoUpload && config.publish.autoUpload.enabled) {
+    if (video.mediaSize < config.publish.autoUpload.maxVideoSizeMB * 1024 * 1024) {
+      const videoServers = config.publish.videoUpload;
+
+      for (const blossomServer of videoServers) {
+        if (video.mediaSize < blossomServer.maxUploadSizeMB * 1024 * 1024) {
+          console.log(`Uploading video ${fullPaths.videoPath} to ${blossomServer}`);
+
+          try {
+            const videoBlob = await uploadFile(
+              fullPaths.videoPath,
+              blossomServer.url,
+              getMimeTypeByPath(path.extname(video.videoPath)),
+              path.basename(video.videoPath),
+              "Upload video",
+              secretKey,
+              video.videoSha256,
+            );
+            console.log(videoBlob);
+          } catch (err) {
+            console.log(err);
+          }
+        } else {
+          logger.log(`Skipping upload to ${blossomServer.url} due to size limit <${blossomServer.maxUploadSizeMB}MB`);
+        }
+      }
+    } else {
+      logger.log(`Skippin auto publishing: ${JSON.stringify(config.publish.autoUpload)}`);
+    }
   }
 
   const event = createTemplateVideoEvent(video, thumbBlobs);

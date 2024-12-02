@@ -12,6 +12,7 @@ import { ensureEncrypted, getInputTag, getRelays } from "../helpers/dvm.js";
 import { finalizeEvent, SimplePool } from "nostr-tools";
 import { unique } from "../utils/array.js";
 import { buildRecoverResult } from "../jobs/results.js";
+import { uploadToBlossomServers } from "./upload.js";
 
 const logger = debug("novia:dvm:recover");
 
@@ -64,7 +65,6 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
       relays,
     );
   }
-  const { videoPath, thumbPath } = fullPaths;
 
   const uploadServers = mergeServers(...config.publish.videoUpload.map((s) => s.url), ...context.target);
 
@@ -72,76 +72,32 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
     `Request for video ${video.id} by ${npubEncode(context.request.pubkey)}. Uploading to ${uploadServers.join(", ")}`,
   );
 
-  for (const server of uploadServers) {
-    const resultTags: string[][] = [];
-    try {
-      const videoBlob = await uploadFile(
-        fullPaths.videoPath,
-        server,
-        getMimeTypeByPath(fullPaths.videoPath),
-        path.basename(fullPaths.videoPath),
-        "Upload Video",
-        secretKey,
-        video.videoSha256,
-        async (percentCompleted, speedMBs) => {
-          const msg = `Upload to ${server}: ${percentCompleted.toFixed(2)}% done at ${speedMBs.toFixed(2)}MB/s`;
-          logger(msg);
-          if (!config.publish?.secret) {
-            await publishStatusEvent(context, "partial", JSON.stringify({ msg }), [], secretKey, relays);
-          }
-        },
-      );
-      logger(`Uploaded video file: ${videoBlob.url}`);
-    } catch (err) {
-      const msg = `Upload of video to ${server} failed.`;
-      console.error(msg, err);
+  const handleUploadProgress = async (server: string, percentCompleted: number, speedMBs: number) => {
+    const msg = `Upload to ${server}: ${percentCompleted.toFixed(2)}% done at ${speedMBs.toFixed(2)}MB/s`;
+    logger(msg);
+    if (!config.publish?.secret) {
+      await publishStatusEvent(context, "partial", JSON.stringify({ msg }), [], secretKey, relays);
+    }
+  };
 
-      if (!config.publish.secret) {
-        await publishStatusEvent(
-          context,
-          "error",
-          JSON.stringify({
-            msg,
-          }),
-          [],
-          secretKey,
-          relays,
-        );
-      }
-    }
-    try {
-      const thumbBlob = await uploadFile(
-        fullPaths.thumbPath,
-        server,
-        getMimeTypeByPath(fullPaths.thumbPath),
-        path.basename(fullPaths.thumbPath),
-        "Upload Thumbnail",
+  const handleErrorMessage = async (msg: string) => {
+    if (!config?.publish?.secret) {
+      await publishStatusEvent(
+        context,
+        "error",
+        JSON.stringify({
+          msg,
+        }),
+        [],
         secretKey,
-        video.thumbSha256,
+        relays,
       );
-      logger(`Uploaded thumbnail file: ${thumbBlob.url}`);
-    } catch (err) {
-      const msg = `Upload of tumbnails to ${server} failed.`;
-      console.error(msg, err);
     }
-    try {
-      const infoBlob = await uploadFile(
-        fullPaths.infoPath,
-        server,
-        getMimeTypeByPath(fullPaths.infoPath),
-        path.basename(fullPaths.infoPath),
-        "Upload info json",
-        secretKey,
-        video.infoSha256,
-      );
-      logger(`Uploaded info json file: ${infoBlob.url}`);
-    } catch (err) {
-      const msg = `Upload of info json to ${server} failed.`;
-      console.error(msg, err);
-    }
-  }
+  };
 
-  if (!config.publish.secret) {
+  await uploadToBlossomServers(uploadServers, video, fullPaths, secretKey, handleUploadProgress, handleErrorMessage);
+
+  if (!config?.publish?.secret) {
     const resultEvent = {
       kind: DVM_VIDEO_UPLOAD_RESULT_KIND,
       tags: [

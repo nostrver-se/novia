@@ -57,35 +57,48 @@ To use docker to run novia you have to mount the media folders as well as a fold
 - Create a config file `./data/novia.yaml`:
 
   ````yaml
-  mediaStores: - id: media
-  type: local
-  path: /data/media
-  watch: true
+  mediaStores: 
+  - id: media
+    type: local
+    path: /data/media
+    watch: true
 
-      database: /data/novia.db
+  database: /data/novia.db
 
-      download:
-        enabled: true
-        ytdlpPath: yt-dlp
-        tempPath: ./temp
-        targetStoreId: media
+  download:
+    enabled: true
+    ytdlpPath: yt-dlp
+    ytdlpCookies: ./cookies.txt
+    tempPath: ./temp
+    targetStoreId: media
+    secret: false   
 
-      publish:
-        enabled: true
-        key: nsecxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-        thumbnailUpload:
-        - https://nostr.download
-        videoUpload:
-          - url: https://nostr.download
-            maxUploadSizeMB: 300
-            cleanUpMaxAgeDays: 5
-            cleanUpKeepSizeUnderMB: 2
-        relays:
-          - <a relay for the video events>
+  publish:
+    enabled: true
+    key: nsecxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    thumbnailUpload:
+    - https://nostr.download
+    videoUpload:
+      - url: https://nostr.download
+        maxUploadSizeMB: 300
+        cleanUpMaxAgeDays: 5
+        cleanUpKeepSizeUnderMB: 2
+    relays:
+      - <a relay for the video events>
+    secret: false
+    autoUpload:
+      enabled: true
+      maxVideoSizeMB: 100
 
-      server:
-        port: 9090
-        enabled: true
+  fetch:
+    enabled: false
+    fetchVideoLimitMB: 10
+    match:
+      - nostr
+
+  server:
+    port: 9090
+    enabled: true
 
       ```
 
@@ -198,7 +211,7 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 - Another c-tag `["c", "<source>", "source"]` is used to store the source website where this video was archived from. This is usually the `extractor` fields from `yt-dlp`.
 - An `["l", "en", "ISO-639-1"]` is added to specify the language of the video if available.
 
-## DVM Archive (aka Download) Request
+## DVM Archive (aka Download) Request (Kind 5205)
 
 | name  | tag | description                                                          |
 | ----- | --- | -------------------------------------------------------------------- |
@@ -211,7 +224,44 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 }
 ```
 
-## DVM Recover (aka Upload) Request
+## DVM Archive (aka Download) Repsonse (Kind 6205)
+
+| name    | tag | description                              |
+| ------- | --- | ---------------------------------------- |
+| content | i   | `JSON block with video data, see below.` |
+
+```json
+{
+  "kind": 6205,
+  "content": "{\"eventId\":\"6641da6a8f8d20acdad49b2bdbef3f57cf51f4e145be6a472903560f51a7bd4b\",\"video\":\"33528c883ea0f8b74f5f7433c7797ca36b9747799231aa7a9489423cbabfb217\",\"thumb\":\"ce1681a9bd006a2a9456f92fecad47372a5eb921488826856451c5f0ed8fac29\",\"info\":\"c674b4a2d431c34372ac9364a1e9207ee6fee82b36d392b4b52cff0c007f0604\",\"naddr\":{\"identifier\":\"youtube-5hPtU8Jbpg0\",\"pubkey\":\"3d70ed1c5f9a9103487c16f575bcd21d7cf4642e2e86539915cee78b2d68948c\",\"relays\":[\"wss://vidono.apps.slidestr.net/\"],\"kind\":34235}}",
+  "tags": [
+    ["request", "...   "],
+    ["e", "170d42b31da8bd582b6797b3a74a2df8238538a65433baee7e59f746df1de9f1"],
+    ["p", "..."],
+    ["i", "https://www.youtube.com/watch?v=5hPtU8Jbpg0", "url"],
+    ["expiration", "1733264732"]
+  ]
+}
+```
+
+### JSON Content
+
+```json
+{
+  "eventId": "6641da6a8f8d20acdad49b2bdbef3f57cf51f4e145be6a472903560f51a7bd4b",
+  "video": "33528c883ea0f8b74f5f7433c7797ca36b9747799231aa7a9489423cbabfb217",
+  "thumb": "ce1681a9bd006a2a9456f92fecad47372a5eb921488826856451c5f0ed8fac29",
+  "info": "c674b4a2d431c34372ac9364a1e9207ee6fee82b36d392b4b52cff0c007f0604",
+  "naddr": {
+    "identifier": "youtube-5hPtU8Jbpg0",
+    "pubkey": "...",
+    "relays": ["wss://some.relay.net/"],
+    "kind": 34235
+  }
+}
+```
+
+## DVM Recover (aka Upload) Request (Kind 5206)
 
 | name  | tag    |  multipe | description                                                                                                                                                                                                                                              |
 | ----- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -223,14 +273,42 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 {
   "kind": 5206,
   "tags": [
-    [
-      "i",
-      "0d1664a9709d385e2dc50e24de0d82fc6394bf93dfc60707dcf0bba2013f14f9",
-      "event",
-      "wss://some-video-relay.net/"
-    ],
+    ["i", "0d1664a9709d385e2dc50e24de0d82fc6394bf93dfc60707dcf0bba2013f14f9", "event", "wss://some-video-relay.net/"],
     ["param", "x", "9bc58f0248ecfe4e2f3aa850edcb17725b9ac91bbe1b8d337617f431c66b8366"],
     ["param", "target", "https://nostr.download/"]
   ]
+}
+```
+
+## DVM Recover (aka Upload) Repsonse (Kind 6206)
+
+```json
+{
+  "kind": 6206,
+
+  "content": "{\"eventId\":\"6a6fc428642d277bb487f2992c2e0c8d33895841a8ac5c6b4d214708340d78d1\",\"video\":\"bab588bb3cb018080a49921d8bbf1775cccbb16c8e934efe5b65ee56289d3892\",\"thumb\":\"05e12717f17a39cca9b44e2f4a745dd3314308fbc2e78e716b49f89dec879386\",\"info\":\"963d1681a8021bf315c7b633655cfdd53c3f530f80d8ce4b7c404b60a8cfe7a6\"}",
+  "created_at": 1733177725,
+  "id": "9fc75cbbc8a06f4069e37077e920e4a6b0f41af6a279b98493da6a6ed897d27c",
+  "tags": [
+    [
+      "request",
+      "..."
+    ],
+    ["e", "da766329f00d71b73c94317db31688d4e3f74c35a2523e1dc016806d5ee9d866"],
+    ["p", "..."],
+    ["i", "6a6fc428642d277bb487f2992c2e0c8d33895841a8ac5c6b4d214708340d78d1", "event", "wss://some-video-relay.net/"],
+    ["expiration", "1733609725"]
+  ]
+}
+```
+
+### JSON Content
+
+```json
+{
+  "eventId": "6a6fc428642d277bb487f2992c2e0c8d33895841a8ac5c6b4d214708340d78d1",
+  "video": "bab588bb3cb018080a49921d8bbf1775cccbb16c8e934efe5b65ee56289d3892",
+  "thumb": "05e12717f17a39cca9b44e2f4a745dd3314308fbc2e78e716b49f89dec879386",
+  "info": "963d1681a8021bf315c7b633655cfdd53c3f530f80d8ce4b7c404b60a8cfe7a6"
 }
 ```
