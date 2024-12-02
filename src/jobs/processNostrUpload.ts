@@ -6,8 +6,8 @@ import path from "path";
 import { BlobDescriptor, uploadFile } from "../helpers/blossom.js";
 import { EventTemplate, finalizeEvent, nip19, SimplePool } from "nostr-tools";
 import debug from "debug";
-import { AddressPointer } from "nostr-tools/nip19";
 import { getMimeTypeByPath } from "../utils/utils.js";
+import { buildArchiveResult } from "./results.js";
 
 const logger = debug("novia:nostrupload");
 
@@ -64,6 +64,7 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
       ["r", createOriginalWebUrl(video)],
       ...(video.tags || []).map((tag) => ["t", tag]),
       ["client", "novia"],
+      ["info", video.infoSha256] // non standard field - but there is not great way to store the info json data. 
     ],
     content: video.title,
   };
@@ -97,16 +98,16 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
     return; // skip if store is not found
   }
 
-  const fullPath = path.join(store.path, video.thumbPath);
   const blossomServers = config.publish.thumbnailUpload;
   const thumbBlobs: BlobDescriptor[] = [];
 
   for (const blossomServer of blossomServers) {
-    console.log(`Uploading ${fullPath} to ${blossomServer}`);
+  const thumbPath = path.join(store.path, video.thumbPath);
+    console.log(`Uploading ${thumbPath} to ${blossomServer}`);
 
     try {
       const thumbBlob = await uploadFile(
-        fullPath,
+        thumbPath,
         blossomServer,
         getMimeTypeByPath(path.extname(video.thumbPath)),
         path.basename(video.thumbPath),
@@ -115,6 +116,24 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
         video.thumbSha256, // optional
       );
       thumbBlobs.push(thumbBlob);
+    } catch (err) {
+      console.log(err);
+    }
+
+    const infoPath = path.join(store.path, video.infoPath);
+    console.log(`Uploading ${infoPath} to ${blossomServer}`);
+
+    try {
+      const infoBlob = await uploadFile(
+        infoPath,
+        blossomServer,
+        getMimeTypeByPath(path.extname(video.infoPath)),
+        path.basename(video.infoPath),
+        "Upload info json",
+        secretKey,
+        video.infoSha256, // optional
+      );
+      console.log(infoBlob);
     } catch (err) {
       console.log(err);
     }
@@ -133,17 +152,8 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
   console.log(`Publishing video ${video.id} to NOSTR ${config.publish.relays.join(", ")}`);
 
   const data = await Promise.allSettled(pool.publish(config.publish.relays, signedEvent));
-  const identifier = signedEvent.tags.find((t) => t[0] == "d")![1];
   logger(data);
-  return {
-    naddr: {
-      identifier,
-      pubkey: signedEvent.pubkey,
-      relays: config.publish.relays,
-      kind: signedEvent.kind,
-    } as AddressPointer,
-    eventId: signedEvent.id,
-  };
+  return buildArchiveResult(signedEvent, config.publish.relays, video);
 }
 
 export async function processNostrUpload(rootEm: EntityManager, config: Config, job: Queue) {

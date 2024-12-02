@@ -201,13 +201,14 @@ export function getMimeTypeByPath(path: string): string {
     case ".m4v":
       return "video/x-m4v";
 
+    case ".json":
+      return "application/json";
     default:
       return "application/octet-stream"; // Default binary type
   }
 }
 
 export const now = () => Math.floor(new Date().getTime() / 1000);
-
 
 export const mergeServers = (...aBunchOfServers: string[]) => {
   return unique(aBunchOfServers.filter((s) => !!s).map((s) => s.replace(/\/$/, "")));

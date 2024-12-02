@@ -1,6 +1,6 @@
 import { EntityManager } from "@mikro-orm/sqlite";
 import { Config } from "../types.js";
-import { DVM_VIDEO_UPLOAD_RESULT_KIND, ONE_DAY_IN_SECONDS, RecoverJobContext } from "./types.js";
+import { DVM_VIDEO_UPLOAD_RESULT_KIND, FIVE_DAYS_IN_SECONDS, ONE_DAY_IN_SECONDS, RecoverJobContext } from "./types.js";
 import debug from "debug";
 import { decode, npubEncode } from "nostr-tools/nip19";
 import { findFullPathsForVideo, formatDuration, getMimeTypeByPath, mergeServers, now } from "../utils/utils.js";
@@ -11,6 +11,7 @@ import path from "path";
 import { ensureEncrypted, getInputTag, getRelays } from "../helpers/dvm.js";
 import { finalizeEvent, SimplePool } from "nostr-tools";
 import { unique } from "../utils/array.js";
+import { buildRecoverResult } from "../jobs/results.js";
 
 const logger = debug("novia:dvm:recover");
 
@@ -123,6 +124,21 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
       const msg = `Upload of tumbnails to ${server} failed.`;
       console.error(msg, err);
     }
+    try {
+      const infoBlob = await uploadFile(
+        fullPaths.infoPath,
+        server,
+        getMimeTypeByPath(fullPaths.infoPath),
+        path.basename(fullPaths.infoPath),
+        "Upload info json",
+        secretKey,
+        video.infoSha256,
+      );
+      logger(`Uploaded info json file: ${infoBlob.url}`);
+    } catch (err) {
+      const msg = `Upload of info json to ${server} failed.`;
+      console.error(msg, err);
+    }
   }
 
   if (!config.publish.secret) {
@@ -133,9 +149,9 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
         ["e", context.request.id],
         ["p", context.request.pubkey],
         getInputTag(context.request),
-        ["expiration", `${now() + ONE_DAY_IN_SECONDS}`],
+        ["expiration", `${now() + FIVE_DAYS_IN_SECONDS}`],
       ],
-      content: "",
+      content: JSON.stringify(buildRecoverResult(video)),
       created_at: now(),
     };
 

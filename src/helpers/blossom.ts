@@ -6,6 +6,7 @@ import debug from "debug";
 import { readFile } from "fs/promises";
 import { createHash } from "crypto";
 import progress_stream from "progress-stream";
+import { basename, parse } from "path";
 
 const logger = debug("novia:blossom");
 export const BLOSSOM_AUTH_KIND = 24242;
@@ -37,7 +38,7 @@ function createBlossemUploadAuthToken(
       ["t", "upload"],
       ["size", `${size}`],
       ["x", blobHash],
-      ["name", `thumb_${Math.random().toString(36).substring(2)}.jpg`], // make sure the auth events are unique
+      ["name", name],
       ["expiration", `${tenMinutesFromNow()}`],
     ],
   };

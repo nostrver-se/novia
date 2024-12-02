@@ -2,6 +2,7 @@ import { NostrEvent } from "nostr-tools";
 
 export const ONE_HOUR_IN_MILLISECS = 60 * 60 * 1000;
 export const ONE_DAY_IN_SECONDS = 24 * 60 * 60;
+export const FIVE_DAYS_IN_SECONDS = 5 * ONE_DAY_IN_SECONDS;
 
 export const DVM_STATUS_KIND = 7000;
 export const DVM_VIDEO_ARCHIVE_REQUEST_KIND = 5205;
