@@ -282,6 +282,11 @@ export async function downloadYoutubeVideo(
         args.push("--skip-download");
       }
 
+      if (config.ytdlpCookies) {
+        args.push("--cookies");
+        args.push(config.ytdlpCookies);
+      }
+
       // Optionally, use the absolute path to yt-dlp
       const ytDlpPath = config.ytdlpPath || "yt-dlp";
       logger(`Spawning yt-dlp '${config.ytdlpPath}' with args: ${args.join(" ")}`);

@@ -1,4 +1,4 @@
-#!/usr/bin/env node --no-warnings
+#!/usr/bin/env -S node --no-warnings
 
 import { Command } from "commander";
 import { EntityManager, MikroORM, raw } from "@mikro-orm/sqlite";
@@ -308,3 +308,8 @@ if (global.WebSocket == undefined) {
   console.error("Websocket support is required. Use NodeJS >= v.21");
   process.exit(1);
 }
+
+
+// TODO check for yt-dlp
+// TODO check for shasum
+// TODO check for ffmpeg

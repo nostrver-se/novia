@@ -9,6 +9,7 @@ export interface MediaStore {
 export interface DownloadConfig {
   enabled: boolean;
   ytdlpPath: string;
+  ytdlpCookies?: string;
   tempPath: string;
   targetStoreId: string;
   secret?: boolean;
