@@ -6,6 +6,7 @@ import path from "path";
 import { promisify } from "util";
 import { DownloadConfig } from "../types.js";
 import debounce from "lodash/debounce.js";
+import { createTempDir } from "./utils.js";
 
 const execAsync = promisify(exec);
 
@@ -262,11 +263,7 @@ export async function downloadYoutubeVideo(
 
   return new Promise((resolve, reject) => {
     try {
-      // Create a temporary directory with a random name
-      const tempDir = path.join(config.tempPath || process.cwd(), "temp_" + Math.random().toString(36).substring(2));
-      if (!existsSync(tempDir)) {
-        mkdirSync(tempDir);
-      }
+      const tempDir = createTempDir(config.tempPath);
       logger(`Temporary directory created at: ${tempDir}`);
 
       // Define yt-dlp arguments

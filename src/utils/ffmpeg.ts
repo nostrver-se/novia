@@ -2,6 +2,8 @@ import { exec } from "child_process";
 import { mkdirSync } from "fs";
 import path from "path";
 import { promisify } from "util";
+import { createTempDir } from "./utils.js";
+import { DownloadConfig } from "../types.js";
 
 type MetaData = {
   streams: {
@@ -77,15 +79,14 @@ export type ThumbnailContent = {
 };
 
 export async function extractThumbnails(
+  config: DownloadConfig,
   videoUrl: string,
   numFrames: number = 1,
   outputFormat: 'jpg'|'png'|'webp' = "jpg",
   options: string = "",
 ): Promise<ThumbnailContent> {
   try {
-    // Create a temporary directory with a random name
-    const tempDir = path.join(process.cwd(), "temp" + Math.random().toString(36).substring(2));
-    mkdirSync(tempDir);
+    const tempDir = createTempDir(config.tempPath);
 
     // Construct the command to extract thumbnails using ffmpeg
     const filenameTemplate = "thumbnail%02d." + outputFormat;

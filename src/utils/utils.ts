@@ -7,6 +7,7 @@ import util from "util";
 import debug from "debug";
 import { Video } from "../entity/Video.js";
 import { unique } from "./array.js";
+import { existsSync, mkdirSync } from "fs";
 
 const logger = debug("novia:utils");
 
@@ -216,3 +217,12 @@ export const now = () => Math.floor(new Date().getTime() / 1000);
 export const mergeServers = (...aBunchOfServers: string[]) => {
   return unique(aBunchOfServers.filter((s) => !!s).map((s) => s.replace(/\/$/, "")));
 };
+
+export function createTempDir(tempBaseDir?: string): string {
+  // Create a temporary directory with a random name
+  const tempDir = path.join(tempBaseDir || process.cwd(), "temp_" + Math.random().toString(36).substring(2));
+  if (!existsSync(tempDir)) {
+    mkdirSync(tempDir);
+  }
+  return tempDir;
+}
