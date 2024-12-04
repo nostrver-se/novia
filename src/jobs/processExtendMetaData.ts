@@ -9,6 +9,7 @@ import { rmSync } from "fs";
 import { updateVideoMetaData } from "../video-indexer.js";
 import { move } from "../utils/move.js";
 import { queueSHAUpdateJob } from "./queue.js";
+import { removeFieldsFromJson } from "../utils/utils.js";
 
 const logger = debug("novia:processExtendMetaData");
 
@@ -48,6 +49,13 @@ export async function processExtendMetaData(rootEm: EntityManager, config: Confi
   if (!download.infoPath || !download.infoData) {
     throw new Error("Required files not found in the temporary directory.");
   }
+
+  await removeFieldsFromJson(download.infoPath, [
+    "thumbnails",
+    "formats",
+    "automatic_captions",
+    "heatmap",
+  ]);
 
   const videoStore = config.mediaStores.find((ms) => ms.type == "local" && ms.id == video.store);
   if (!videoStore || !videoStore.path) {

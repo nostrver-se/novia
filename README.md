@@ -312,3 +312,16 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
   "info": "963d1681a8021bf315c7b633655cfdd53c3f530f80d8ce4b7c404b60a8cfe7a6"
 }
 ```
+
+## DVM Mirror Request (Kind 5207) ???
+
+```json
+{
+  "kind": 5207,
+  "tags": [
+    ["i", "0d1664a9709d385e2dc50e24de0d82fc6394bf93dfc60707dcf0bba2013f14f9", "event", "wss://some-video-relay.net/"],
+    ["param", "x", "9bc58f0248ecfe4e2f3aa850edcb17725b9ac91bbe1b8d337617f431c66b8366"],
+    ["param", "target", "https://nostr.download/"]
+  ]
+}
+```

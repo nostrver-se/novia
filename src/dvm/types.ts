@@ -7,8 +7,8 @@ export const FIVE_DAYS_IN_SECONDS = 5 * ONE_DAY_IN_SECONDS;
 export const DVM_STATUS_KIND = 7000;
 export const DVM_VIDEO_ARCHIVE_REQUEST_KIND = 5205;
 export const DVM_VIDEO_ARCHIVE_RESULT_KIND = 6205;
-export const DVM_VIDEO_UPLOAD_REQUEST_KIND = 5206;
-export const DVM_VIDEO_UPLOAD_RESULT_KIND = 6206;
+export const DVM_VIDEO_RECOVER_REQUEST_KIND = 5206;
+export const DVM_VIDEO_RECOVER_RESULT_KIND = 6206;
 
 export const BLOSSOM_AUTH_KIND = 24242;
 
@@ -28,6 +28,7 @@ export interface ArchiveJobContext extends BaseJobContext {
     type: "recover";
     x: string;
     eventId: string;
+    relay?: string;
     target: string[];
   }
   

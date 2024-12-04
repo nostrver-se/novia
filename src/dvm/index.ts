@@ -7,7 +7,12 @@ import debug from "debug";
 import { Config, PublishConfig } from "../types.js";
 import { decode } from "nostr-tools/nip19";
 import { EntityManager } from "@mikro-orm/sqlite";
-import { DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_UPLOAD_REQUEST_KIND, JobContext, ONE_HOUR_IN_MILLISECS } from "./types.js";
+import {
+  DVM_VIDEO_ARCHIVE_REQUEST_KIND,
+  DVM_VIDEO_RECOVER_REQUEST_KIND as DVM_VIDEO_RECOVER_REQUEST_KIND,
+  JobContext,
+  ONE_HOUR_IN_MILLISECS,
+} from "./types.js";
 import { doWorkForRecover } from "./recover.js";
 import { mergeServers, now } from "../utils/utils.js";
 import { doWorkForArchive } from "./archive.js";
@@ -19,16 +24,16 @@ const logger = debug("novia:dvm");
 const subscriptions: { [key: string]: Subscription } = {};
 
 const filters: Filter[] = [
-  { kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_UPLOAD_REQUEST_KIND], since: now() - 60 },
+  { kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_RECOVER_REQUEST_KIND], since: now() - 60 },
 ]; // look 60s back
 
 async function shouldAcceptJob(request: NostrEvent): Promise<JobContext> {
   const input = getInput(request);
 
-  if (input.type === "event" && request.kind == DVM_VIDEO_UPLOAD_REQUEST_KIND) {
+  if (input.type === "event" && request.kind == DVM_VIDEO_RECOVER_REQUEST_KIND) {
     const x = getInputParam(request, "x");
     const target = getInputParams(request, "target");
-    return { type: "recover", x, eventId: input.value, target, request, wasEncrypted: false };
+    return { type: "recover", x, eventId: input.value, relay: input.relay, target, request, wasEncrypted: false };
   } else if (input.type === "url" && request.kind == DVM_VIDEO_ARCHIVE_REQUEST_KIND) {
     // TODO check allowed URLs (regexs in config?)
     return { type: "archive", url: input.value, request, wasEncrypted: false };
@@ -66,7 +71,7 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
   if (!seenEvents.has(event.id)) {
     try {
       seenEvents.add(event.id);
-      if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND || DVM_VIDEO_UPLOAD_REQUEST_KIND) {
+      if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND || DVM_VIDEO_RECOVER_REQUEST_KIND) {
         const { wasEncrypted, event: decryptedEvent } = await ensureDecrypted(secretKey, event);
         const context = await shouldAcceptJob(decryptedEvent);
         context.wasEncrypted = wasEncrypted;

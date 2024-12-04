@@ -1,7 +1,7 @@
 import { EntityManager } from "@mikro-orm/sqlite";
 import { Config } from "../types.js";
 import { ArchiveJobContext, DVM_VIDEO_ARCHIVE_RESULT_KIND, ONE_DAY_IN_SECONDS } from "./types.js";
-import { decode } from "nostr-tools/nip19";
+import { decode, EventPointer } from "nostr-tools/nip19";
 import debug from "debug";
 import { publishStatusEvent } from "./publish.js";
 import { processVideoDownloadJob } from "../jobs/processVideoDownloadJob.js";
@@ -9,7 +9,7 @@ import { processFile } from "../video-indexer.js";
 import { doComputeSha256 } from "../jobs/processShaHashes.js";
 import { doNostrUploadForVideo } from "../jobs/processNostrUpload.js";
 import { ensureEncrypted, getInputTag, getRelays } from "../helpers/dvm.js";
-import { finalizeEvent, SimplePool } from "nostr-tools";
+import { finalizeEvent, nip19, SimplePool } from "nostr-tools";
 import { unique } from "../utils/array.js";
 import { now } from "../utils/utils.js";
 
@@ -59,8 +59,8 @@ export async function doWorkForArchive(context: ArchiveJobContext, config: Confi
       if (!nostrResult) {
         throw new Error("Could not create nostr video event");
       }
-
-      video.event = nostrResult?.eventId;
+      const { id } = nip19.decode(nostrResult.nevent).data as EventPointer;
+      video.event = id;
       const em = rootEm.fork();
       em.persistAndFlush(video);
 

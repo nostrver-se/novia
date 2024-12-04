@@ -1,13 +1,11 @@
 import { EntityManager } from "@mikro-orm/sqlite";
 import { Config } from "../types.js";
-import { DVM_VIDEO_UPLOAD_RESULT_KIND, FIVE_DAYS_IN_SECONDS, ONE_DAY_IN_SECONDS, RecoverJobContext } from "./types.js";
+import { DVM_VIDEO_RECOVER_RESULT_KIND, FIVE_DAYS_IN_SECONDS, ONE_DAY_IN_SECONDS, RecoverJobContext } from "./types.js";
 import debug from "debug";
 import { decode, npubEncode } from "nostr-tools/nip19";
 import { findFullPathsForVideo, formatDuration, getMimeTypeByPath, mergeServers, now } from "../utils/utils.js";
 import { Video } from "../entity/Video.js";
 import { publishStatusEvent } from "./publish.js";
-import { uploadFile } from "../helpers/blossom.js";
-import path from "path";
 import { ensureEncrypted, getInputTag, getRelays } from "../helpers/dvm.js";
 import { finalizeEvent, SimplePool } from "nostr-tools";
 import { unique } from "../utils/array.js";
@@ -99,7 +97,7 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
 
   if (!config?.publish?.secret) {
     const resultEvent = {
-      kind: DVM_VIDEO_UPLOAD_RESULT_KIND,
+      kind: DVM_VIDEO_RECOVER_RESULT_KIND,
       tags: [
         ["request", JSON.stringify(context.request)],
         ["e", context.request.id],
@@ -107,7 +105,7 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
         getInputTag(context.request),
         ["expiration", `${now() + FIVE_DAYS_IN_SECONDS}`],
       ],
-      content: JSON.stringify(buildRecoverResult(video)),
+      content: JSON.stringify(buildRecoverResult(context.eventId, context.relay ? [context.relay] : [], video)),
       created_at: now(),
     };
 

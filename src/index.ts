@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { EntityManager, MikroORM, raw } from "@mikro-orm/sqlite";
 import ormConfig from "./mikro-orm.config.js";
 import { Queue } from "./entity/Queue.js";
-import { formatDuration } from "./utils/utils.js";
+import { formatDuration, getMimeTypeByPath } from "./utils/utils.js";
 import { Video } from "./entity/Video.js";
 import { readConfigSync, validateConfig } from "./config.js";
 import { scanDirectory, setupWatcher as setupNewVideoWatcher } from "./video-indexer.js";

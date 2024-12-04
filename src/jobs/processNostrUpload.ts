@@ -8,6 +8,7 @@ import { EventTemplate, finalizeEvent, nip19, SimplePool } from "nostr-tools";
 import debug from "debug";
 import { findFullPathsForVideo, getMimeTypeByPath } from "../utils/utils.js";
 import { buildArchiveResult } from "./results.js";
+import { EventPointer } from "nostr-tools/nip19";
 
 const logger = debug("novia:nostrupload");
 
@@ -109,7 +110,7 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
       const thumbBlob = await uploadFile(
         fullPaths.thumbPath,
         blossomServer,
-        getMimeTypeByPath(path.extname(video.thumbPath)),
+        getMimeTypeByPath(video.thumbPath),
         path.basename(video.thumbPath),
         "Upload Thumbnail",
         secretKey,
@@ -126,7 +127,7 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
       const infoBlob = await uploadFile(
         fullPaths.infoPath,
         blossomServer,
-        getMimeTypeByPath(path.extname(video.infoPath)),
+        getMimeTypeByPath(video.infoPath),
         path.basename(video.infoPath),
         "Upload info json",
         secretKey,
@@ -148,13 +149,13 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
 
       for (const blossomServer of videoServers) {
         if (video.mediaSize < blossomServer.maxUploadSizeMB * 1024 * 1024) {
-          console.log(`Uploading video ${fullPaths.videoPath} to ${blossomServer}`);
+          console.log(`Uploading video ${fullPaths.videoPath} to ${blossomServer.url}`);
 
           try {
             const videoBlob = await uploadFile(
               fullPaths.videoPath,
               blossomServer.url,
-              getMimeTypeByPath(path.extname(video.videoPath)),
+              getMimeTypeByPath(video.videoPath),
               path.basename(video.videoPath),
               "Upload video",
               secretKey,
@@ -165,11 +166,11 @@ export async function doNostrUploadForVideo(video: Video, config: Config) {
             console.log(err);
           }
         } else {
-          logger.log(`Skipping upload to ${blossomServer.url} due to size limit <${blossomServer.maxUploadSizeMB}MB`);
+          logger(`Skipping upload to ${blossomServer.url} due to size limit <${blossomServer.maxUploadSizeMB}MB`);
         }
       }
     } else {
-      logger.log(`Skippin auto publishing: ${JSON.stringify(config.publish.autoUpload)}`);
+      logger(`Skipping auto publishing: ${JSON.stringify(config.publish.autoUpload)}`);
     }
   }
 
@@ -202,8 +203,9 @@ export async function processNostrUpload(rootEm: EntityManager, config: Config, 
 
   const result = await doNostrUploadForVideo(video, config);
 
-  if (result && result.eventId) {
-    video.event = result.eventId;
+  if (result && result.nevent) {
+    const { id } = nip19.decode(result.nevent).data as EventPointer;
+    video.event = id;
     em.persistAndFlush(video);
   }
 }
