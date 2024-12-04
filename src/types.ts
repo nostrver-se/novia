@@ -40,7 +40,8 @@ export interface ServerConfig {
 
 export interface FetchConfig {
   enabled: boolean;
-  match: string[];
+  match?: string[];
+  relays?: string[];
 }
 
 export interface Config {

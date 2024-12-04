@@ -8,7 +8,7 @@ export class Queue {
   id!: number;
 
   @Property({ default: "download" })
-  type!: "download" | "extendmetadata" | 'createHashes' | 'nostrUpload'
+  type!: "download" | "extendmetadata" | 'createHashes' | 'nostrUpload' | 'mirrorVideo'
 
   @Property()
   url!: string;

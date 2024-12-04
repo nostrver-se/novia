@@ -1,12 +1,14 @@
 import { finalizeEvent } from "nostr-tools";
-import { createReadStream, statSync } from "fs";
+import { createReadStream, createWriteStream, mkdirSync, statSync } from "fs";
 import axios, { AxiosProgressEvent } from "axios";
 import debug from "debug";
 
 import { readFile } from "fs/promises";
 import { createHash } from "crypto";
 import progress_stream from "progress-stream";
-import { basename, parse } from "path";
+import { basename, join, parse } from "path";
+import { pipeline } from "stream";
+import { promisify } from "util";
 
 const logger = debug("novia:blossom");
 export const BLOSSOM_AUTH_KIND = 24242;
@@ -208,4 +210,73 @@ export async function deleteBlob(server: string, blobHash: string, secretKey: Ui
   if (blobResult.status !== 200) {
     logger(`Failed to delete blobs: ${blobResult.status} ${blobResult.statusText}`);
   }
+}
+
+const streamPipeline = promisify(pipeline);
+
+export async function downloadFile(
+  server: string,
+  hash: string,
+  targetPath: string,
+  filename?: string,
+): Promise<string> {
+  const fileUrl = `${server}/${hash}`;
+  const destinationPath = join(targetPath, filename || hash);
+
+  try {
+    // Ensure the target directory exists
+    mkdirSync(targetPath, { recursive: true });
+
+    // Initiate the download request
+    const response = await axios({
+      method: "get",
+      url: fileUrl,
+      responseType: "stream",
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`Failed to download file: ${response.statusText}`);
+    }
+
+    // Save the file to the target path
+    const fileStream = createWriteStream(destinationPath);
+    await streamPipeline(response.data, fileStream);
+
+    logger(`File downloaded successfully to ${destinationPath}`);
+    return destinationPath;
+  } catch (error: any) {
+    throw new Error(
+      `Failed to download file from ${fileUrl} to ${destinationPath}: ${error.message}`,
+    );
+  }
+}
+
+export async function downloadFromServers(
+  servers: string[],
+  hash: string,
+  targetPath: string,
+  filename?: string
+): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (const server of servers) {
+    try {
+      logger(`Attempting to download from server: ${server}`);
+      const filePath = await downloadFile(server, hash, targetPath, filename);
+      logger(`Successfully downloaded from server: ${server}`);
+      return filePath;
+    } catch (error: any) {
+      lastError = error;
+      logger(`Failed to download from server: ${server} - ${error.message}`);
+    }
+  }
+
+  // If no server succeeded, throw the last error
+  if (lastError) {
+    throw new Error(
+      `Failed to download file from all servers: ${lastError.message}`
+    );
+  }
+
+  throw new Error("No servers were provided for the download.");
 }

@@ -2,6 +2,7 @@ import { EntityManager } from "@mikro-orm/sqlite";
 import debug from "debug";
 import { Queue } from "../entity/Queue.js";
 import { Video } from "../entity/Video.js";
+import { nip19, NostrEvent } from "nostr-tools";
 
 const logger = debug("novia:queue");
 
@@ -30,19 +31,12 @@ export async function queueDownloadJob(rootEm: EntityManager, url: string) {
   }
 }
 
-export async function queueExtendMetaDataJob(
-  rootEm: EntityManager,
-  videoId: string
-) {
+export async function queueExtendMetaDataJob(rootEm: EntityManager, videoId: string) {
   const em = rootEm.fork();
   try {
     const exitingJob = await em.findAll(Queue, {
       where: {
-        $and: [
-          { type: "extendmetadata" },
-          { status: "queued" },
-          { url: videoId },
-        ],
+        $and: [{ type: "extendmetadata" }, { status: "queued" }, { url: videoId }],
       },
     });
 
@@ -59,19 +53,12 @@ export async function queueExtendMetaDataJob(
   }
 }
 
-export async function queueSHAUpdateJob(
-  rootEm: EntityManager,
-  videoId: string
-) {
+export async function queueSHAUpdateJob(rootEm: EntityManager, videoId: string) {
   const em = rootEm.fork();
   try {
     const exitingJob = await em.findAll(Queue, {
       where: {
-        $and: [
-          { type: "createHashes" },
-          { status: "queued" },
-          { url: videoId },
-        ],
+        $and: [{ type: "createHashes" }, { status: "queued" }, { url: videoId }],
       },
     });
 
@@ -127,5 +114,32 @@ export async function queueAllVideosForNostrUpload(rootEm: EntityManager) {
   // TODO check somehow which have already been uploaded!?!?!
   for (const video of videos) {
     await queueNostrUpload(rootEm, video.id);
+  }
+}
+
+export async function queueMirrorJob(rootEm: EntityManager, videoEvent: NostrEvent, relays: string[]) {
+  logger("queueMirrorJob function called");
+  try {
+    const em = rootEm.fork();
+
+    const nevent = nip19.neventEncode({ id: videoEvent.id, author: videoEvent.pubkey, kind: videoEvent.kind, relays });
+
+    const exitingJob = await em.findAll(Queue, {
+      where: {
+        $and: [{ type: "mirrorVideo" }, { status: "queued" }, { url: nevent }],
+      },
+    });
+
+    if (exitingJob.length == 0) {
+      const job = new Queue();
+      job.url = nevent;
+      job.owner = "local";
+      job.type = "mirrorVideo";
+      em.persist(job);
+      await em.flush();
+      console.log(`Added mirror job to queue for: ${nevent}`);
+    }
+  } catch (error) {
+    console.error("Error mirror job to queue:", error);
   }
 }

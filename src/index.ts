@@ -21,6 +21,7 @@ import { processExtendMetaData } from "./jobs/processExtendMetaData.js";
 import { processNostrUpload } from "./jobs/processNostrUpload.js";
 import { startDVM } from "./dvm/index.js";
 import { createNoviaConfig } from "./init-setup.js";
+import { processMirrorJob } from "./jobs/processMirrorJob.js";
 
 const logger = debug("novia");
 
@@ -50,6 +51,8 @@ export async function processJob(rootEm: EntityManager, config: Config, job: Que
       await processCreateHashesJob(rootEm, config, job);
     } else if (type == "nostrUpload") {
       await processNostrUpload(rootEm, config, job);
+    } else if (type == "mirrorVideo") {
+      await processMirrorJob(rootEm, config, job);
     }
 
     // Update status to 'completed'

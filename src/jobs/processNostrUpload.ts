@@ -9,6 +9,7 @@ import debug from "debug";
 import { findFullPathsForVideo, getMimeTypeByPath } from "../utils/utils.js";
 import { buildArchiveResult } from "./results.js";
 import { EventPointer } from "nostr-tools/nip19";
+import { HORIZONZAL_VIDEO_KIND, VERTICAL_VIDEO_KIND } from "../dvm/types.js";
 
 const logger = debug("novia:nostrupload");
 
@@ -44,10 +45,10 @@ export function createTemplateVideoEvent(video: Video, thumbBlobs: BlobDescripto
   for (let i = 0; i < thumbUrls.length; i++) {
     imeta.push(`image ${thumbUrls[i]}`);
   }
-
+  
   const event = {
     created_at: Math.floor(Date.now() / 1000), // TODO should this be today / now?
-    kind: video.width >= video.height ? 34235 : 34236,
+    kind: video.width >= video.height ? HORIZONZAL_VIDEO_KIND : VERTICAL_VIDEO_KIND,
     tags: [
       ["d", `${video.source}-${video.externalId}`],
       ["x", video.videoSha256], // deprecated

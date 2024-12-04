@@ -10,12 +10,16 @@ import { EntityManager } from "@mikro-orm/sqlite";
 import {
   DVM_VIDEO_ARCHIVE_REQUEST_KIND,
   DVM_VIDEO_RECOVER_REQUEST_KIND as DVM_VIDEO_RECOVER_REQUEST_KIND,
+  HORIZONZAL_VIDEO_KIND,
   JobContext,
   ONE_HOUR_IN_MILLISECS,
+  VERTICAL_VIDEO_KIND,
 } from "./types.js";
 import { doWorkForRecover } from "./recover.js";
 import { mergeServers, now } from "../utils/utils.js";
 import { doWorkForArchive } from "./archive.js";
+import { queueMirrorJob } from "../jobs/queue.js";
+import { unique } from "../utils/array.js";
 
 const pool = new SimplePool();
 
@@ -24,7 +28,10 @@ const logger = debug("novia:dvm");
 const subscriptions: { [key: string]: Subscription } = {};
 
 const filters: Filter[] = [
-  { kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_RECOVER_REQUEST_KIND], since: now() - 60 },
+  {
+    kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_RECOVER_REQUEST_KIND, HORIZONZAL_VIDEO_KIND, VERTICAL_VIDEO_KIND],
+    since: now() - 60,
+  },
 ]; // look 60s back
 
 async function shouldAcceptJob(request: NostrEvent): Promise<JobContext> {
@@ -71,7 +78,7 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
   if (!seenEvents.has(event.id)) {
     try {
       seenEvents.add(event.id);
-      if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND || DVM_VIDEO_RECOVER_REQUEST_KIND) {
+      if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND || event.kind === DVM_VIDEO_RECOVER_REQUEST_KIND) {
         const { wasEncrypted, event: decryptedEvent } = await ensureDecrypted(secretKey, event);
         const context = await shouldAcceptJob(decryptedEvent);
         context.wasEncrypted = wasEncrypted;
@@ -84,6 +91,13 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
           }
         }
       }
+      if (event.kind === HORIZONZAL_VIDEO_KIND || event.kind === VERTICAL_VIDEO_KIND) {
+        if (config.fetch?.enabled) {
+          const relays = config.publish?.relays || []; // TODO use read/inbox relays
+          queueMirrorJob(rootEm, event, relays);
+        }
+      }
+
       /*
       if (event.kind === kinds.GiftWrap) {
         const dmEvent = unwrapGiftWrapDM(event);
@@ -92,6 +106,7 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
         */
     } catch (e) {
       if (e instanceof Error) {
+        console.error(e);
         logger(`Skipped request ${event.id} because`, e.message);
       }
     }
@@ -99,7 +114,7 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
 }
 
 async function ensureSubscriptions(config: Config, rootEm: EntityManager) {
-  const relays = config.publish?.relays || [];
+  const relays = unique([...(config.publish?.relays || []), ...(config.fetch?.relays || [])]); // TODO use read/inbox relays vs outbox/publish relays
   logger(
     `ensureSubscriptions`,
     JSON.stringify(Object.entries(subscriptions).map(([k, v]) => ({ k, closed: v.closed }))),
