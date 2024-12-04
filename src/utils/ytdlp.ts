@@ -1,14 +1,10 @@
-import { exec, spawn } from "child_process";
+import { spawn } from "child_process";
 import debug from "debug";
-import { existsSync, mkdirSync, readFileSync, readdirSync } from "fs";
-import { tmpdir } from "os";
+import { readFileSync, readdirSync } from "fs";
 import path from "path";
-import { promisify } from "util";
 import { DownloadConfig } from "../types.js";
 import debounce from "lodash/debounce.js";
 import { createTempDir } from "./utils.js";
-
-const execAsync = promisify(exec);
 
 const logger = debug("novia:ytdlp");
 

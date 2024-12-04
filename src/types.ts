@@ -15,16 +15,18 @@ export interface DownloadConfig {
   secret?: boolean;
 }
 
+export interface BlossomConfig {
+  url: string;
+  maxUploadSizeMB: number;
+  cleanUpMaxAgeDays: number;
+  cleanUpKeepSizeUnderMB: number;
+}
+
 export interface PublishConfig {
   enabled: boolean;
   key: string;
   thumbnailUpload: string[];
-  videoUpload: {
-    url: string;
-    maxUploadSizeMB: number;
-    cleanUpMaxAgeDays: number;
-    cleanUpKeepSizeUnderMB: number;
-  }[];
+  videoUpload: BlossomConfig[];
   relays: string[];
   secret?: boolean;
   autoUpload?: {

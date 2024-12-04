@@ -1,9 +1,9 @@
 import { EntityManager } from "@mikro-orm/sqlite";
-import { Config } from "../types.js";
-import { DVM_VIDEO_RECOVER_RESULT_KIND, FIVE_DAYS_IN_SECONDS, ONE_DAY_IN_SECONDS, RecoverJobContext } from "./types.js";
+import { BlossomConfig, Config } from "../types.js";
+import { DVM_VIDEO_RECOVER_RESULT_KIND, FIVE_DAYS_IN_SECONDS, RecoverJobContext } from "./types.js";
 import debug from "debug";
 import { decode, npubEncode } from "nostr-tools/nip19";
-import { findFullPathsForVideo, formatDuration, getMimeTypeByPath, mergeServers, now } from "../utils/utils.js";
+import { findFullPathsForVideo, formatDuration, mergeServers, now } from "../utils/utils.js";
 import { Video } from "../entity/Video.js";
 import { publishStatusEvent } from "./publish.js";
 import { ensureEncrypted, getInputTag, getRelays } from "../helpers/dvm.js";
@@ -11,6 +11,7 @@ import { finalizeEvent, SimplePool } from "nostr-tools";
 import { unique } from "../utils/array.js";
 import { buildRecoverResult } from "../jobs/results.js";
 import { uploadToBlossomServers } from "./upload.js";
+import uniqBy from "lodash/uniqBy.js";
 
 const logger = debug("novia:dvm:recover");
 
@@ -64,14 +65,20 @@ export async function doWorkForRecover(context: RecoverJobContext, config: Confi
     );
   }
 
-  const uploadServers = mergeServers(...config.publish.videoUpload.map((s) => s.url), ...context.target);
+  const uploadServers = uniqBy(
+    [...config.publish.videoUpload, ...context.target.map((s) => ({ url: s }) as BlossomConfig)].map((bc) => ({
+      ...bc,
+      url: bc.url.replace(/\/$/, ""),
+    })),
+    (bc) => bc.url.toLocaleLowerCase(),
+  );
 
   console.log(
     `Request for video ${video.id} by ${npubEncode(context.request.pubkey)}. Uploading to ${uploadServers.join(", ")}`,
   );
 
-  const handleUploadProgress = async (server: string, percentCompleted: number, speedMBs: number) => {
-    const msg = `Upload to ${server}: ${percentCompleted.toFixed(2)}% done at ${speedMBs.toFixed(2)}MB/s`;
+  const handleUploadProgress = async (server: BlossomConfig, percentCompleted: number, speedMBs: number) => {
+    const msg = `Upload to ${server.url}: ${percentCompleted.toFixed(2)}% done at ${speedMBs.toFixed(2)}MB/s`;
     logger(msg);
     if (!config.publish?.secret) {
       await publishStatusEvent(context, "partial", JSON.stringify({ msg }), [], secretKey, relays);

@@ -312,7 +312,6 @@ if (global.WebSocket == undefined) {
   process.exit(1);
 }
 
-
 // TODO check for yt-dlp
 // TODO check for shasum
 // TODO check for ffmpeg

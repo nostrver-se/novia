@@ -3,11 +3,12 @@ import { Video } from "../entity/Video.js";
 import { uploadFile } from "../helpers/blossom.js";
 import { getMimeTypeByPath } from "../utils/utils.js";
 import debug from "debug";
+import { BlossomConfig } from "../types.js";
 
 const logger = debug("novia:dvm:upload");
 
 export async function uploadToBlossomServers(
-  uploadServers: string[],
+  uploadServers: BlossomConfig[],
   video: Video,
   fullPaths: {
     videoPath: string;
@@ -15,16 +16,23 @@ export async function uploadToBlossomServers(
     infoPath: string;
   },
   secretKey: Uint8Array,
-  onProgress?: (server: string, percentCompleted: number, speedMBs: number) => Promise<void>,
+  onProgress?: (server: BlossomConfig, percentCompleted: number, speedMBs: number) => Promise<void>,
   onError?: (msg: string) => Promise<void>,
 ) {
   for (const server of uploadServers) {
+    if (video.mediaSize > server.maxUploadSizeMB * 1024 * 1024) {
+      logger(
+        `Can not upload to ${server.url} because video exceeds maxUploadSizeMB: ${video.mediaSize} > ${server.maxUploadSizeMB}MB`,
+      );
+      continue;
+    }
+
     const resultTags: string[][] = [];
 
     try {
       const videoBlob = await uploadFile(
         fullPaths.videoPath,
-        server,
+        server.url,
         getMimeTypeByPath(fullPaths.videoPath),
         path.basename(fullPaths.videoPath),
         "Upload Video",
@@ -46,7 +54,7 @@ export async function uploadToBlossomServers(
     try {
       const thumbBlob = await uploadFile(
         fullPaths.thumbPath,
-        server,
+        server.url,
         getMimeTypeByPath(fullPaths.thumbPath),
         path.basename(fullPaths.thumbPath),
         "Upload Thumbnail",
@@ -62,7 +70,7 @@ export async function uploadToBlossomServers(
     try {
       const infoBlob = await uploadFile(
         fullPaths.infoPath,
-        server,
+        server.url,
         getMimeTypeByPath(fullPaths.infoPath),
         path.basename(fullPaths.infoPath),
         "Upload info json",

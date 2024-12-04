@@ -57,7 +57,7 @@ To use docker to run novia you have to mount the media folders as well as a fold
 - Create a config file `./data/novia.yaml`:
 
   ````yaml
-  mediaStores: 
+  mediaStores:
   - id: media
     type: local
     path: /data/media
@@ -71,7 +71,7 @@ To use docker to run novia you have to mount the media folders as well as a fold
     ytdlpCookies: ./cookies.txt
     tempPath: ./temp
     targetStoreId: media
-    secret: false   
+    secret: false
 
   publish:
     enabled: true
@@ -210,6 +210,7 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
   original author, e.g. Youtube channel.
 - Another c-tag `["c", "<source>", "source"]` is used to store the source website where this video was archived from. This is usually the `extractor` fields from `yt-dlp`.
 - An `["l", "en", "ISO-639-1"]` is added to specify the language of the video if available.
+- An additional tag `["info", "<hash>"]` is used to store a blossom hash for video metadata that is created by `yt-dlp`. This can be used to restore an archive entry with the full meta data information that is not contained in the nostr event.
 
 ## DVM Archive (aka Download) Request (Kind 5205)
 
@@ -267,7 +268,7 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 | ----- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | input | i      | no       | A video event the author is looking for (including event id and relay )                                                                                                                                                                                  |
 | param | x      | no       | The sha256 hash of the video that the author is looking for (required).                                                                                                                                                                                  |
-| param | target | yes      | A blossom server the author wants the video to be uploaded. There can be issues with authentication and the novia service can decode to upload on a different server. The target param can appear multiple times, to request upload to multiple servers. |
+| param | target | yes      | A blossom server the author wants the video to be uploaded. There can be issues with authentication and the novia service can decide to upload on a different server. The target param can appear multiple times, to request upload to multiple servers. |
 
 ```json
 {
@@ -290,10 +291,7 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
   "created_at": 1733177725,
   "id": "9fc75cbbc8a06f4069e37077e920e4a6b0f41af6a279b98493da6a6ed897d27c",
   "tags": [
-    [
-      "request",
-      "..."
-    ],
+    ["request", "..."],
     ["e", "da766329f00d71b73c94317db31688d4e3f74c35a2523e1dc016806d5ee9d866"],
     ["p", "..."],
     ["i", "6a6fc428642d277bb487f2992c2e0c8d33895841a8ac5c6b4d214708340d78d1", "event", "wss://some-video-relay.net/"],

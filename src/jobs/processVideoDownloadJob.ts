@@ -49,9 +49,11 @@ export async function processVideoDownloadJob(
 
   const targetVideoPath =
     download.videoPath && path.join(targetFolder, `${videoId}${path.extname(download.videoPath)}`);
+
   if (download.videoPath && targetVideoPath) {
     await move(download.videoPath, targetVideoPath);
   }
+  
   if (download.infoPath) {
     await move(download.infoPath, path.join(targetFolder, `${videoId}.info.json`));
   }
