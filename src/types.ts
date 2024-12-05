@@ -44,6 +44,7 @@ export interface FetchConfig {
   enabled: boolean;
   match?: string[];
   relays?: string[];
+  blossom?: string[];
 }
 
 export interface Config {

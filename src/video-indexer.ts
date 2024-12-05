@@ -64,6 +64,9 @@ export const processFile = async (
   stores: MediaStore[],
   filePath: string,
   triggerJobs = true,
+  /* Callback that allows callers to modify the new video object
+     before it is persisted to the database */
+  onUpdate?: (video: Video) => void,
 ) => {
   try {
     if (
@@ -88,6 +91,9 @@ export const processFile = async (
         const vid = new Video();
 
         await updateVideoMetaData(vid, filePath, store);
+        if (onUpdate) {
+          onUpdate(vid);
+        }
         await em.persistAndFlush(vid);
 
         if (triggerJobs) {

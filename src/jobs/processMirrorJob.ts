@@ -7,8 +7,12 @@ import { EventPointer } from "nostr-tools/nip19";
 import { nip19, NostrEvent, SimplePool } from "nostr-tools";
 import { processFile } from "../video-indexer.js";
 import { createTempDir } from "../utils/utils.js";
-import { downloadFromServers } from "../helpers/blossom.js";
+import { downloadFromServers, getHashFromURL } from "../helpers/blossom.js";
 import { mapVideoData } from "../utils/mapvideodata.js";
+import uniq from "lodash/uniq.js";
+import { analyzeVideoFolder } from "../utils/ytdlp.js";
+import { moveFilesToTargetFolder } from "./processVideoDownloadJob.js";
+import { rmSync } from "fs";
 
 const logger = debug("novia:mirrorjob");
 
@@ -31,9 +35,15 @@ function videoMatchesFetchCriteria(videoEvent: NostrEvent, matchCriteria: string
 }
 
 export async function processMirrorJob(rootEm: EntityManager, config: Config, job: Queue) {
+  logger(`starting processMirrorJob`);
+
   const em = rootEm.fork();
   if (!config.fetch) {
     console.error("Fetch settings are not defined in config.");
+    return;
+  }
+  if (!config.download) {
+    console.error("Download settings are not defined in config.");
     return;
   }
 
@@ -43,7 +53,10 @@ export async function processMirrorJob(rootEm: EntityManager, config: Config, jo
 
   const pool = new SimplePool();
 
-  const videoEvent = await pool.get(relays || config.publish?.relays || [], { ids: [id] });
+  const effectiveRelays = uniq([...(relays || []), ...(config.fetch?.relays || []), ...(config.publish?.relays || [])]);
+  logger(`Looking for video event ${nevent} on ${effectiveRelays?.join(", ")}`);
+
+  const videoEvent = await pool.get(effectiveRelays, { ids: [id] });
   logger(videoEvent);
   if (!videoEvent) {
     logger(`Video event ${id} not found on relays ${relays}.`);
@@ -70,22 +83,53 @@ export async function processMirrorJob(rootEm: EntityManager, config: Config, jo
     const tempDir = createTempDir(config.download?.tempPath);
 
     // TODO get the blossom server from the uploader 10063, cache for 10min
-    const blossomServers = config.publish?.videoUpload.map((s) => s.url) || [];
+    const blossomServers = uniq(
+      [...(config.fetch.blossom || []), ...(config.publish?.videoUpload.map((s) => s.url) || [])].map((s) =>
+        s.replace(/\/$/, ""),
+      ),
+    );
     await downloadFromServers(blossomServers, videoData.x, tempDir, `${videoData.x}.mp4`);
-    if (videoData.image) {
-      await downloadFromServers(blossomServers, videoData.image, tempDir, `${videoData.x}.jpg`);
+
+    const imageHash = videoData.image && getHashFromURL(videoData.image);
+    if (imageHash) {
+      await downloadFromServers(blossomServers, imageHash, tempDir, `${videoData.x}.jpg`);
+    } else {
+      logger(`Could not find sha265 hash in url ${videoData.image}`);
     }
+
     if (videoData.info) {
       await downloadFromServers(blossomServers, videoData.info, tempDir, `${videoData.x}.info.json`);
     }
-    const fullPath = ""; // TODO SET PATH
-    await processFile(rootEm, config.mediaStores, fullPath, true);
-  }
 
-  // create a temp folder
-  // download the 3 files into the temp folder
-  // move to target
-  // import normaly into database
-  // set event id AND sha256 sums in DB
-  // delete temp
+    const download = await analyzeVideoFolder(tempDir, false, false);
+
+    const { targetFolder, targetVideoPath } = await moveFilesToTargetFolder(
+      config.mediaStores,
+      config.download,
+      download,
+      false,
+    );
+
+    if (!targetVideoPath) {
+      throw Error("Error finding the stored video. " + targetVideoPath);
+    }
+
+    // remove the temp dir
+    rmSync(download.folder, { recursive: true });
+
+    console.log(`Downloaded content saved to ${targetFolder}`);
+
+    await processFile(rootEm, config.mediaStores, targetVideoPath, false, (video) => {
+      video.event = id;
+      if (imageHash) {
+        video.thumbSha256 = imageHash;
+      }
+      if (videoData.x) {
+        video.videoSha256 = videoData.x;
+      }
+      if (videoData.info) {
+        video.infoSha256 = videoData.info;
+      }
+    });
+  }
 }

@@ -48,7 +48,7 @@ async function shouldAcceptJob(request: NostrEvent): Promise<JobContext> {
 }
 
 async function doWork(context: JobContext, config: Config, rootEm: EntityManager) {
-  if (context.type == "archive") {
+  if (config.download?.enabled && context.type == "archive") {
     await doWorkForArchive(context, config, rootEm);
   } else if (context.type == "recover") {
     await doWorkForRecover(context, config, rootEm);
@@ -73,12 +73,13 @@ async function ensureDecrypted(secretKey: Uint8Array, event: NostrEvent) {
 const seenEvents = new Set<string>();
 
 async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityManager) {
-  const secretKey = decode(config.publish?.key || "").data as Uint8Array;
 
   if (!seenEvents.has(event.id)) {
     try {
       seenEvents.add(event.id);
       if (event.kind === DVM_VIDEO_ARCHIVE_REQUEST_KIND || event.kind === DVM_VIDEO_RECOVER_REQUEST_KIND) {
+        const secretKey = decode(config.publish?.key || "").data as Uint8Array;
+
         const { wasEncrypted, event: decryptedEvent } = await ensureDecrypted(secretKey, event);
         const context = await shouldAcceptJob(decryptedEvent);
         context.wasEncrypted = wasEncrypted;
@@ -188,13 +189,10 @@ async function cleanupBlobs(publishConfig: PublishConfig) {
 }
 
 export async function startDVM(config: Config, rootEm: EntityManager) {
-  if (!config.publish?.enabled) {
-    logger("DVM Publishing is not enabled.");
-    return;
+  if (config.publish) {
+    await cleanupBlobs(config.publish);
+    setInterval(() => config.publish && cleanupBlobs(config.publish), ONE_HOUR_IN_MILLISECS);
   }
-
-  await cleanupBlobs(config.publish);
-  setInterval(() => config.publish && cleanupBlobs(config.publish), ONE_HOUR_IN_MILLISECS);
 
   await ensureSubscriptions(config, rootEm);
   setInterval(() => ensureSubscriptions(config, rootEm), 30_000); // Ensure connections every 30s

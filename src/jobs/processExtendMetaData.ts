@@ -46,6 +46,7 @@ export async function processExtendMetaData(rootEm: EntityManager, config: Confi
 
   const download = await downloadYoutubeVideo(url, true, config.download);
 
+  
   if (!download.infoPath || !download.infoData) {
     throw new Error("Required files not found in the temporary directory.");
   }

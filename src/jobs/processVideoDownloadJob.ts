@@ -1,24 +1,18 @@
 import path from "path";
 import { extractThumbnails, ThumbnailContent } from "../utils/ffmpeg.js";
-import { Config } from "../types.js";
+import { Config, DownloadConfig, MediaStore } from "../types.js";
 import { removeFieldsFromJson } from "../utils/utils.js";
-import { DownloadInfo, downloadYoutubeVideo } from "../utils/ytdlp.js";
+import { DownloadInfo, downloadYoutubeVideo, VideoContent } from "../utils/ytdlp.js";
 import { mkdir } from "fs/promises";
 import { move } from "../utils/move.js";
 import { rmSync } from "fs";
 
-export async function processVideoDownloadJob(
-  config: Config,
-  url: string,
+export async function moveFilesToTargetFolder(
+  mediaStores: MediaStore[],
+  config: DownloadConfig,
+  download: VideoContent,
   skipVideo: boolean = false,
-  onProgress?: (info: DownloadInfo) => Promise<void>,
 ) {
-  if (config.download == undefined) {
-    throw new Error(`Download config is not defined.`);
-  }
-
-  const download = await downloadYoutubeVideo(url, skipVideo, config.download, onProgress);
-
   if ((!skipVideo && !download.videoPath) || !download.infoPath || !download.infoData) {
     throw new Error("Required files not found in the temporary directory.");
   }
@@ -27,15 +21,15 @@ export async function processVideoDownloadJob(
 
   const videoId = download.infoData.id;
 
-  const downloadStore = config.mediaStores.find((ms) => ms.type == "local" && ms.id == config.download?.targetStoreId);
+  const downloadStore = mediaStores.find((ms) => ms.type == "local" && ms.id == config?.targetStoreId);
 
   if (!downloadStore || !downloadStore.path) {
-    throw new Error(`Download folder for store ${config.download?.targetStoreId} not found.`);
+    throw new Error(`Download folder for store ${config?.targetStoreId} not found.`);
   }
 
   let generatedThumb: ThumbnailContent | undefined = undefined;
   if (download.videoPath && !download.thumbnailPath) {
-    generatedThumb = await extractThumbnails(config.download, download.videoPath, 1, "webp");
+    generatedThumb = await extractThumbnails(config, download.videoPath, 1, "webp");
     download.thumbnailPath = generatedThumb.thumbnailPaths[0];
   }
 
@@ -53,7 +47,7 @@ export async function processVideoDownloadJob(
   if (download.videoPath && targetVideoPath) {
     await move(download.videoPath, targetVideoPath);
   }
-  
+
   if (download.infoPath) {
     await move(download.infoPath, path.join(targetFolder, `${videoId}.info.json`));
   }
@@ -61,6 +55,32 @@ export async function processVideoDownloadJob(
   if (download.thumbnailPath) {
     await move(download.thumbnailPath, path.join(targetFolder, `${videoId}${path.extname(download.thumbnailPath)}`));
   }
+
+  return {
+    generatedThumb,
+    targetFolder,
+    targetVideoPath,
+  };
+}
+
+export async function processVideoDownloadJob(
+  config: Config,
+  url: string,
+  skipVideo: boolean = false,
+  onProgress?: (info: DownloadInfo) => Promise<void>,
+) {
+  if (config.download == undefined) {
+    throw new Error(`Download config is not defined.`);
+  }
+
+  const download = await downloadYoutubeVideo(url, skipVideo, config.download, onProgress);
+
+  const { generatedThumb, targetFolder, targetVideoPath } = await moveFilesToTargetFolder(
+    config.mediaStores,
+    config.download,
+    download,
+    skipVideo,
+  );
 
   // remove the temp dir
   rmSync(download.folder, { recursive: true });
