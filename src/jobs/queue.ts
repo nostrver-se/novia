@@ -117,12 +117,10 @@ export async function queueAllVideosForNostrUpload(rootEm: EntityManager) {
   }
 }
 
-export async function queueMirrorJob(rootEm: EntityManager, videoEvent: NostrEvent, relays: string[]) {
+export async function queueMirrorJob(rootEm: EntityManager, nevent: string ) {
   logger("queueMirrorJob function called");
   try {
     const em = rootEm.fork();
-
-    const nevent = nip19.neventEncode({ id: videoEvent.id, author: videoEvent.pubkey, kind: videoEvent.kind, relays });
 
     const exitingJob = await em.findAll(Queue, {
       where: {

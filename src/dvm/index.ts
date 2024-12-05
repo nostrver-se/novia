@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { NostrEvent, Filter, nip04, SimplePool, getPublicKey } from "nostr-tools";
+import { NostrEvent, Filter, nip04, SimplePool, getPublicKey, nip19 } from "nostr-tools";
 import { listBlobs, deleteBlob } from "../helpers/blossom.js";
 import { Subscription } from "nostr-tools/abstract-relay";
 import { getInput, getInputParam, getInputParams } from "../helpers/dvm.js";
@@ -9,7 +9,9 @@ import { decode } from "nostr-tools/nip19";
 import { EntityManager } from "@mikro-orm/sqlite";
 import {
   DVM_VIDEO_ARCHIVE_REQUEST_KIND,
+  DVM_VIDEO_ARCHIVE_RESULT_KIND,
   DVM_VIDEO_RECOVER_REQUEST_KIND as DVM_VIDEO_RECOVER_REQUEST_KIND,
+  DVM_VIDEO_RECOVER_RESULT_KIND,
   HORIZONZAL_VIDEO_KIND,
   JobContext,
   ONE_HOUR_IN_MILLISECS,
@@ -20,6 +22,7 @@ import { mergeServers, now } from "../utils/utils.js";
 import { doWorkForArchive } from "./archive.js";
 import { queueMirrorJob } from "../jobs/queue.js";
 import { unique } from "../utils/array.js";
+import { RecoverResult } from "../jobs/results.js";
 
 const pool = new SimplePool();
 
@@ -29,7 +32,13 @@ const subscriptions: { [key: string]: Subscription } = {};
 
 const filters: Filter[] = [
   {
-    kinds: [DVM_VIDEO_ARCHIVE_REQUEST_KIND, DVM_VIDEO_RECOVER_REQUEST_KIND, HORIZONZAL_VIDEO_KIND, VERTICAL_VIDEO_KIND],
+    kinds: [
+      DVM_VIDEO_ARCHIVE_REQUEST_KIND,
+      DVM_VIDEO_RECOVER_REQUEST_KIND,
+      DVM_VIDEO_RECOVER_RESULT_KIND,
+      HORIZONZAL_VIDEO_KIND,
+      VERTICAL_VIDEO_KIND,
+    ],
     since: now() - 60,
   },
 ]; // look 60s back
@@ -73,7 +82,6 @@ async function ensureDecrypted(secretKey: Uint8Array, event: NostrEvent) {
 const seenEvents = new Set<string>();
 
 async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityManager) {
-
   if (!seenEvents.has(event.id)) {
     try {
       seenEvents.add(event.id);
@@ -92,10 +100,29 @@ async function handleEvent(event: NostrEvent, config: Config, rootEm: EntityMana
           }
         }
       }
+      if (event.kind === DVM_VIDEO_ARCHIVE_RESULT_KIND) {
+        // skip for new because we use the HORIZONZAL_VIDEO_KIND/VERTICAL_VIDEO_KIND
+      }
+      if (event.kind === DVM_VIDEO_RECOVER_RESULT_KIND) {
+        try {
+          const recoverResult = JSON.parse(event.content) as RecoverResult;
+          // TODO we could use the hashes directly!?
+          if (config.fetch?.enabled) {
+            queueMirrorJob(rootEm, recoverResult.nevent);
+          }
+        } catch (e) {
+          if (e instanceof Error) {
+            logger(`Failed to process recover result ${event.id} because`, e.message);
+            console.log(e);
+          }
+        }
+      }
+
       if (event.kind === HORIZONZAL_VIDEO_KIND || event.kind === VERTICAL_VIDEO_KIND) {
         if (config.fetch?.enabled) {
           const relays = config.publish?.relays || []; // TODO use read/inbox relays
-          queueMirrorJob(rootEm, event, relays);
+          const nevent = nip19.neventEncode({ id: event.id, author: event.pubkey, kind: event.kind, relays });
+          queueMirrorJob(rootEm, nevent);
         }
       }
 

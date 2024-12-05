@@ -46,6 +46,14 @@ novia follows a few simple rules:
 - **Offer download services** to other users via NOSTR DVMs.
 - **Offer video upload services** to users requesting a specific video.
 
+# Services
+
+The novia service has several roles, that can be enabled/disabled for different setups:
+- **archive** Receive a URL and archive the video locally
+- **publish** If enabled, archived videos are published (publicly) to a relay. By default this is only meta data and a thumbnail. If you enable the setting `autopublish` videos up to a certain size will also be uploaded automatically.
+- **recover** A user might request a video to be recovered (i.e. uploaded). If `recover` is enabled novia will upload the requested video to a blossom server.
+- **fetch** Instructs the novia instance to download or mirror videos that other novia instances publish or upload.
+
 # Setting it up
 
 ## Running in Docker
@@ -56,7 +64,7 @@ To use docker to run novia you have to mount the media folders as well as a fold
 - Create a folder `./data/media` where the video content will go.
 - Create a config file `./data/novia.yaml`:
 
-  ````yaml
+  ```yaml
   mediaStores:
   - id: media
     type: local
@@ -100,10 +108,10 @@ To use docker to run novia you have to mount the media folders as well as a fold
     port: 9090
     enabled: true
 
-      ```
+  ```
 
   **Notice:** The paths point to `/data/` here. The service will automatically look for the config file in `/data/novia.db` or `./novia.db`. For docker setups it is easiest to just mount the `/data` folder.
-  ````
+
 
 Now you can run docker to start the novia service:
 
@@ -312,6 +320,13 @@ Novia creates video events according to nip71 (https://github.com/nostr-protocol
 ```
 
 ## DVM Mirror Request (Kind 5207) ???
+
+A (private) request to another DVM that offers a video 
+for mirroring. 
+
+"Here is a video, that is only available for a short time. Please mirror it locally" 
+
+(not implemented yet)
 
 ```json
 {
