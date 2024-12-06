@@ -77,7 +77,7 @@ To use docker to run novia you have to mount the media folders as well as a fold
     enabled: true
     ytdlpPath: yt-dlp
     ytdlpCookies: ./cookies.txt
-    tempPath: ./temp
+    tempPath: /tmp
     targetStoreId: media
     secret: false
 
@@ -101,8 +101,11 @@ To use docker to run novia you have to mount the media folders as well as a fold
   fetch:
     enabled: false
     fetchVideoLimitMB: 10
+    relays:
+      - <a relay with the video events to mirror>
     match:
       - nostr
+      - bitcoin
 
   server:
     port: 9090

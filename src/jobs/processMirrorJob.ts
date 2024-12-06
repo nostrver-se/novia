@@ -131,5 +131,11 @@ export async function processMirrorJob(rootEm: EntityManager, config: Config, jo
         video.infoSha256 = videoData.info;
       }
     });
+
+    if (config.publish && config.publish.enabled && config.publish.relays.length > 0) {
+      // if publish is enabled republish the video event to the defined
+      // publishing relays as well.
+      pool.publish(config.publish.relays, videoEvent);
+    }
   }
 }

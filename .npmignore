@@ -10,3 +10,4 @@ Dockerfile
 docker-compose.yaml
 data/
 TODO.md
+fetchtest/
