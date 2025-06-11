@@ -143,6 +143,22 @@ It expects the following tools to be installed:
 - ffmpeg (https://ffmpeg.org/)
 - shasum (https://www.gnu.org/software/coreutils/ usually preinstalled on most systems)
 
+### Download dependencies
+
+This will download and install all required dependencies.
+
+```bash
+npm install
+```
+
+### Build
+
+This will build the application from source in the `dist` directory.
+
+```bash
+npm run build
+```
+
 ### Configuration
 
 When running with nodejs there is a helpful init tool that helps you to create the config file:
@@ -169,9 +185,9 @@ publish:
   enabled: true
   key: nsec188j2c3e0tdk7w6vapd0fcdn0g9fq653vzpj2zufgwx659qt49euqjlwnu0
   thumbnailUpload:
-    - https://nostr.download
+    - https://nosto.re
   videoUpload:
-    - url: https://nostr.download
+    - url: https://nosto.re
       cleanUpKeepSizeUnderMB: 2
       cleanUpMaxAgeDays: 10
       maxUploadSizeMB: 500
@@ -179,7 +195,7 @@ publish:
     - my-video-relay.org
 server:
   enabled: true
-  port: 9090
+  port: 3060
 ```
 
 If the media folder that you have specified doesn't already exist, go ahead and create it now.
@@ -193,6 +209,10 @@ Then you can run `serve` to start the service and answer video requests.
 ```bash
 npx novia serve
 ```
+
+### Development
+
+@TODO
 
 # Known issues / limitations
 
