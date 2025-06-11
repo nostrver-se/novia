@@ -152,7 +152,7 @@ export async function createNoviaConfig() {
     publish: publishConfig.enabled ? publishConfig : undefined,
     server: {
       enabled: true,
-      port: 9090,
+      port: 3060,
     } as ServerConfig,
   };
 

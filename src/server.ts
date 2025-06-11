@@ -16,7 +16,7 @@ const statAsync = promisify(stat);
 
 const logger = debug("novia:server");
 
-export function startLocalServer(rootEm: EntityManager, mediaStores: MediaStore[], port: number = 9090) {
+export function startLocalServer(rootEm: EntityManager, mediaStores: MediaStore[], port: number = 3060) {
   const app = express();
 
   // Middleware to parse JSON requests

@@ -23,7 +23,7 @@ export function readConfigSync(): Config {
       mediaStores: [{ id: "store", type: "local", path: "./media", watch: true }],
       download: { enabled: true, ytdlpPath: "ytdlp", tempPath: "./temp", targetStoreId: "store" },
       database: "./novia.db",
-      server: { enabled: true, port: 9090 },
+      server: { enabled: true, port: 3060 },
     };
   }
 
