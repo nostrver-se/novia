@@ -307,10 +307,10 @@ process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 process.once("SIGUSR2", shutdown);
 
-if (global.WebSocket == undefined) {
-  console.error("Websocket support is required. Use NodeJS >= v.21");
-  process.exit(1);
-}
+// if (global.WebSocket == undefined) {
+//   console.error("Websocket support is required. Use NodeJS >= v.21");
+//   process.exit(1);
+// }
 
 // TODO check for yt-dlp
 // TODO check for shasum
